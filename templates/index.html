@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>داشبورد مانیتورینگ و پیش‌بینی DRAI</title>
+  <!-- فقط فایل‌های لوکال — بدون CDN -->
+  <script src="/static/vendor/tailwind.js"></script>
+  <script src="/static/vendor/htmx.min.js"></script>
+  <script src="/static/vendor/alpine.min.js" defer></script>
+</head>
+<body class="min-h-screen bg-slate-100 font-sans text-slate-800">
+  <div class="mx-auto max-w-7xl px-4 py-8">
+    <header class="mb-8 text-center">
+      <h1 class="text-3xl font-bold text-slate-800">داشبورد مانیتورینگ و پیش‌بینی DRAI</h1>
+      <p class="mt-2 text-slate-600">سیستم شبیه‌سازی آفلاین برای پردازش و پیش‌بینی داده‌های کوره</p>
+    </header>
+
+    <main class="space-y-6">
+      <!-- Upload Section -->
+      <section class="rounded-2xl border-2 border-slate-300 bg-white p-6 shadow-sm">
+        <h2 class="mb-4 text-xl font-semibold text-slate-800">آپلود فایل‌های CSV</h2>
+        <form
+          id="upload-form"
+          x-data="uploadForm()"
+          @submit.prevent="handleUpload"
+          class="space-y-4"
+        >
+          <!-- Process Tags File -->
+          <div>
+            <label class="mb-2 block text-sm font-medium text-slate-700">
+              فایل Process Tags (داده‌های سنسورهای فرآیندی)
+            </label>
+            <input
+              type="file"
+              name="process_tags"
+              accept=".csv"
+              x-ref="processFile"
+              class="block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-slate-100 file:px-4 file:py-2 file:font-medium file:text-slate-700 hover:file:bg-slate-200"
+            />
+          </div>
+
+          <!-- Pellet Data File -->
+          <div>
+            <label class="mb-2 block text-sm font-medium text-slate-700">
+              فایل Pellet Data (داده‌های آزمایشگاهی ورودی گندله)
+            </label>
+            <input
+              type="file"
+              name="pellet_data"
+              accept=".csv"
+              x-ref="pelletFile"
+              class="block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-slate-100 file:px-4 file:py-2 file:font-medium file:text-slate-700 hover:file:bg-slate-200"
+            />
+          </div>
+
+          <!-- MD/Quality Data File -->
+          <div>
+            <label class="mb-2 block text-sm font-medium text-slate-700">
+              فایل MD/Quality Data (داده‌های کیفی خروجی)
+            </label>
+            <input
+              type="file"
+              name="mdnc_data"
+              accept=".csv"
+              x-ref="mdncFile"
+              class="block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-slate-100 file:px-4 file:py-2 file:font-medium file:text-slate-700 hover:file:bg-slate-200"
+            />
+          </div>
+
+          <!-- Upload Button -->
+          <button
+            type="submit"
+            :disabled="uploading"
+            class="inline-flex items-center gap-2 rounded-xl bg-slate-800 px-6 py-3 font-medium text-white shadow-md transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 disabled:opacity-50"
+          >
+            <span x-show="uploading" class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+            <span x-text="uploading ? 'در حال آپلود...' : 'آپلود و پردازش'"></span>
+          </button>
+
+          <!-- Upload Status -->
+          <div x-show="uploadMessage" class="rounded-lg p-3" :class="uploadSuccess ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'">
+            <p x-text="uploadMessage"></p>
+          </div>
+        </form>
+      </section>
+
+      <!-- Simulation Controls -->
+      <section class="rounded-2xl border-2 border-slate-300 bg-white p-6 shadow-sm" x-show="dataLoaded">
+        <h2 class="mb-4 text-xl font-semibold text-slate-800">کنترل شبیه‌سازی</h2>
+        <div class="flex flex-wrap gap-3">
+          <button
+            @click="startSimulation"
+            :disabled="simRunning"
+            class="rounded-lg bg-green-600 px-4 py-2 font-medium text-white transition hover:bg-green-700 disabled:opacity-50"
+          >
+            شروع شبیه‌سازی
+          </button>
+          <button
+            @click="pauseSimulation"
+            :disabled="!simRunning"
+            class="rounded-lg bg-yellow-600 px-4 py-2 font-medium text-white transition hover:bg-yellow-700 disabled:opacity-50"
+          >
+            توقف موقت
+          </button>
+          <button
+            @click="resumeSimulation"
+            :disabled="!simPaused"
+            class="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
+          >
+            ادامه
+          </button>
+          <button
+            @click="resetSimulation"
+            class="rounded-lg bg-red-600 px-4 py-2 font-medium text-white transition hover:bg-red-700"
+          >
+            بازنشانی
+          </button>
+        </div>
+      </section>
+
+      <!-- Dashboard Section -->
+      <section
+        id="dashboard"
+        class="rounded-2xl border-2 border-slate-300 bg-white p-6 shadow-sm"
+        hx-get="/update-dashboard"
+        hx-trigger="every 5s"
+        hx-swap="innerHTML"
+        x-show="dataLoaded"
+      >
+        <h2 class="mb-4 text-xl font-semibold text-slate-800">داشبورد مانیتورینگ</h2>
+        <div class="text-center text-slate-500">
+          <p>در حال بارگذاری...</p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="mt-12 text-center text-sm text-slate-500">
+      محیط آفلاین — بدون استفاده از CDN
+    </footer>
+  </div>
+
+  <script>
+    function uploadForm() {
+      return {
+        uploading: false,
+        uploadMessage: '',
+        uploadSuccess: false,
+        dataLoaded: false,
+        simRunning: false,
+        simPaused: false,
+
+        async handleUpload() {
+          this.uploading = true;
+          this.uploadMessage = '';
+
+          const formData = new FormData();
+          formData.append('process_tags', this.$refs.processFile.files[0]);
+          formData.append('pellet_data', this.$refs.pelletFile.files[0]);
+          formData.append('mdnc_data', this.$refs.mdncFile.files[0]);
+
+          try {
+            const response = await fetch('/upload', {
+              method: 'POST',
+              body: formData
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+              this.uploadMessage = result.message;
+              this.uploadSuccess = true;
+              this.dataLoaded = true;
+              
+              // Start polling dashboard
+              setTimeout(() => {
+                htmx.trigger('#dashboard', 'htmx:trigger');
+              }, 1000);
+            } else {
+              this.uploadMessage = result.error || 'خطا در آپلود';
+              this.uploadSuccess = false;
+            }
+          } catch (error) {
+            this.uploadMessage = 'خطا در ارتباط با سرور: ' + error.message;
+            this.uploadSuccess = false;
+          } finally {
+            this.uploading = false;
+          }
+        },
+
+        async startSimulation() {
+          try {
+            const response = await fetch('/simulation/start', { method: 'POST' });
+            const result = await response.json();
+            if (result.success) {
+              this.simRunning = true;
+              this.simPaused = false;
+              htmx.trigger('#dashboard', 'htmx:trigger');
+            }
+          } catch (error) {
+            console.error('Error starting simulation:', error);
+          }
+        },
+
+        async pauseSimulation() {
+          try {
+            const response = await fetch('/simulation/pause', { method: 'POST' });
+            const result = await response.json();
+            if (result.success) {
+              this.simPaused = true;
+            }
+          } catch (error) {
+            console.error('Error pausing simulation:', error);
+          }
+        },
+
+        async resumeSimulation() {
+          try {
+            const response = await fetch('/simulation/resume', { method: 'POST' });
+            const result = await response.json();
+            if (result.success) {
+              this.simPaused = false;
+              htmx.trigger('#dashboard', 'htmx:trigger');
+            }
+          } catch (error) {
+            console.error('Error resuming simulation:', error);
+          }
+        },
+
+        async resetSimulation() {
+          try {
+            const response = await fetch('/simulation/reset', { method: 'POST' });
+            const result = await response.json();
+            if (result.success) {
+              this.simRunning = false;
+              this.simPaused = false;
+              htmx.trigger('#dashboard', 'htmx:trigger');
+            }
+          } catch (error) {
+            console.error('Error resetting simulation:', error);
+          }
+        }
+      };
+    }
+  </script>
+</body>
+</html>
