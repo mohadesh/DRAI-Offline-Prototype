@@ -1,0 +1,38 @@
+{% if error %}
+<div class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-800 shadow-sm">
+  <p class="font-medium">{{ error }}</p>
+</div>
+{% else %}
+<div class="space-y-4">
+  <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-slate-700 shadow-sm">
+    <p class="font-medium">{{ stats.message }}</p>
+    <p class="mt-1 text-sm">ردیف‌ها: {{ stats.rows }} — ستون‌ها: {{ stats.columns }}{% if stats.preview_rows %} (پیش‌نمایش {{ stats.preview_rows }} ردیف){% endif %}</p>
+  </div>
+  {% if preview_data %}
+  <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+        <thead class="bg-slate-100">
+          <tr>
+            {% for key in preview_data[0].keys() %}
+            <th class="px-4 py-3 font-semibold text-slate-700">{{ key }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for row in preview_data %}
+          <tr class="hover:bg-slate-50">
+            {% for key, value in row.items() %}
+            <td class="px-4 py-2 text-slate-800">{{ value }}</td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% else %}
+  <p class="text-slate-600">داده‌ای برای نمایش وجود ندارد.</p>
+  {% endif %}
+</div>
+{% endif %}

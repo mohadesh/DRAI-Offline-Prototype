@@ -1,0 +1,9 @@
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+uploads/
+*.csv
+*.xlsx
+models/*.pkl
+!models/dummy_model.pkl

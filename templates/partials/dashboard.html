@@ -1,0 +1,114 @@
+{% if error %}
+<div class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-800 shadow-sm">
+  <p class="font-medium">{{ error }}</p>
+</div>
+{% elif current_data %}
+<div class="space-y-4">
+  <!-- Status and Progress Bar -->
+  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div class="mb-2 flex items-center justify-between">
+      <h3 class="text-lg font-semibold text-slate-800">وضعیت سیستم</h3>
+      <span class="rounded-full px-3 py-1 text-sm font-medium {% if current_data.status == 'Normal' %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+        {{ current_data.status if current_data.status else 'نامشخص' }}
+      </span>
+    </div>
+    {% if progress %}
+    <div class="mt-2">
+      <div class="mb-1 flex justify-between text-sm text-slate-600">
+        <span>پیشرفت: {{ progress.current_index }} / {{ progress.total_rows }}</span>
+        <span>{{ progress.progress_percent }}%</span>
+      </div>
+      <div class="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+        <div class="h-full bg-blue-600 transition-all duration-300" style="width: {{ progress.progress_percent }}%"></div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Current Timestamp -->
+  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <h3 class="mb-2 text-lg font-semibold text-slate-800">زمان فعلی</h3>
+    <div class="space-y-1">
+      <p class="text-sm text-slate-600">شمسی (جلالی):</p>
+      <p class="text-xl font-mono text-slate-800">{{ current_data.jalali_datetime_str if current_data.jalali_datetime_str else 'نامشخص' }}</p>
+      <p class="mt-2 text-sm text-slate-600">میلادی:</p>
+      <p class="text-lg font-mono text-slate-700">{{ current_data.georgian_datetime if current_data.georgian_datetime else 'نامشخص' }}</p>
+    </div>
+  </div>
+
+  <!-- Production Rate (WTH15) -->
+  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <h3 class="mb-2 text-lg font-semibold text-slate-800">نرخ تولید (WTH15)</h3>
+    {% set wth15 = None %}
+    {% if 'WTH15' in current_data %}
+      {% set wth15 = current_data['WTH15'] %}
+    {% elif 'INST_WTH15' in current_data %}
+      {% set wth15 = current_data['INST_WTH15'] %}
+    {% endif %}
+    {% if wth15 is not none and wth15 != '' %}
+    <div class="flex items-center gap-4">
+      <span class="text-3xl font-bold {% if wth15 >= 80 %}text-green-600{% else %}text-red-600{% endif %}">
+        {{ "%.2f"|format(wth15) }}
+      </span>
+      <span class="text-sm text-slate-600">تن بر ساعت</span>
+    </div>
+    {% else %}
+    <p class="text-slate-500">داده در دسترس نیست</p>
+    {% endif %}
+  </div>
+
+  <!-- Predictions -->
+  <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+    <!-- MD Prediction -->
+    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <h3 class="mb-2 text-lg font-semibold text-slate-800">پیش‌بینی MD</h3>
+      {% if predictions and predictions.MD is not none %}
+      <p class="text-3xl font-bold text-blue-600">{{ "%.2f"|format(predictions.MD) }}</p>
+      <p class="mt-1 text-sm text-slate-600">درصد</p>
+      {% else %}
+      <p class="text-slate-500">مدل در دسترس نیست</p>
+      {% endif %}
+    </div>
+
+    <!-- C Prediction -->
+    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <h3 class="mb-2 text-lg font-semibold text-slate-800">پیش‌بینی C</h3>
+      {% if predictions and predictions.C is not none %}
+      <p class="text-3xl font-bold text-purple-600">{{ "%.2f"|format(predictions.C) }}</p>
+      <p class="mt-1 text-sm text-slate-600">درصد</p>
+      {% else %}
+      <p class="text-slate-500">مدل در دسترس نیست</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Key Process Tags -->
+  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <h3 class="mb-3 text-lg font-semibold text-slate-800">تگ‌های فرآیندی مهم</h3>
+    <div class="grid grid-cols-2 gap-3 md:grid-cols-3">
+      {% for key, value in current_data.items() %}
+        {% if key.startswith('INST_') and value is not none and key != 'INST_WTH15' %}
+          {% set tag_name = key.replace('INST_', '') %}
+          <div class="rounded-lg border border-slate-100 bg-slate-50 p-2">
+            <p class="text-xs font-medium text-slate-600">{{ tag_name }}</p>
+            <p class="text-sm font-semibold text-slate-800">
+              {% if value is number %}
+                {{ "%.2f"|format(value) }}
+              {% elif value is not none and value != '' %}
+                {{ value }}
+              {% else %}
+                N/A
+              {% endif %}
+            </p>
+          </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="rounded-xl border border-slate-200 bg-slate-50 p-8 text-center">
+  <p class="text-slate-600">در حال انتظار برای شروع شبیه‌سازی...</p>
+</div>
+{% endif %}
+
