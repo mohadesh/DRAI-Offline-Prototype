@@ -192,12 +192,12 @@ python app.py
 ```
 
 The server will start on:
-- Local: `http://127.0.0.1:5000`
-- Network: `http://0.0.0.0:5000` (accessible from other devices)
+- Local: `http://127.0.0.1:6000`
+- Network: `http://0.0.0.0:6000` (accessible from other devices)
 
 ### Using the Application
 
-1. **Open Browser**: Navigate to `http://127.0.0.1:5000`
+1. **Open Browser**: Navigate to `http://127.0.0.1:6000`
 
 2. **Upload Files**:
    - **Process Tags**: Select one or more CSV/Excel files containing sensor data
@@ -409,7 +409,7 @@ For offline testing:
 **Warning**: The Flask development server is not suitable for production.
 
 For production, use:
-- **Gunicorn**: `gunicorn -w 4 -b 0.0.0.0:5000 app:app`
+- **Gunicorn**: `gunicorn -w 4 -b 0.0.0.0:6000 app:app`
 - **uWSGI**: Configure with proper workers
 - **Docker**: Containerize the application
 - **Reverse Proxy**: Use Nginx or Apache
