@@ -23,6 +23,7 @@
         <h2 class="mb-4 text-xl font-semibold text-slate-800">آپلود فایل‌های CSV (دسته‌ای)</h2>
         <form
           id="upload-form"
+          x-ref="uploadForm"
           x-data="uploadForm()"
           @submit.prevent="handleUpload"
           enctype="multipart/form-data"
@@ -86,6 +87,22 @@
             <p x-show="fileCounts.md > 0" class="mt-1 text-xs text-slate-500">
               <span x-text="fileCounts.md"></span> فایل انتخاب شده
             </p>
+          </div>
+
+          <!-- Model frequency (1h, 15T, 30T) -->
+          <div>
+            <label class="mb-2 block text-sm font-medium text-slate-700">
+              بازهٔ مدل پیش‌بینی (فرکانس)
+            </label>
+            <select
+              name="model_frequency"
+              class="block w-full max-w-xs rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
+            >
+              <option value="30T">۳۰ دقیقه (30T)</option>
+              <option value="15T">۱۵ دقیقه (15T)</option>
+              <option value="1h">۱ ساعت (1h)</option>
+            </select>
+            <p class="mt-1 text-xs text-slate-500">مدل‌های MD و C بر اساس همین بازه برای پیش‌بینی استفاده می‌شوند.</p>
           </div>
 
           <!-- Upload Button -->
@@ -230,6 +247,9 @@
           for (let i = 0; i < mdFiles.length; i++) {
             formData.append('md_files', mdFiles[i]);
           }
+
+          const freqSelect = this.$refs.uploadForm.querySelector('select[name="model_frequency"]');
+          if (freqSelect) formData.append('model_frequency', freqSelect.value);
           
           // Debug log
           console.log(`Uploading: ${processFiles.length} process, ${pelletFiles.length} pellet, ${mdFiles.length} md files`);

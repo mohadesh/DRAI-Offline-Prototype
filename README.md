@@ -1,14 +1,10 @@
 # DRAI Offline Inference Application
 
-<div dir="rtl">
+A professional, offline-capable web application for processing, merging, and analyzing DRI (Direct Reduced Iron) furnace data with real-time simulation and ML model inference.
 
-# سیستم مانیتورینگ و پیش‌بینی آفلاین DRAI
+---
 
-</div>
-
-A professional, offline-capable web application for processing, merging, and analyzing DRI (Direct Reduced Iron) furnace data with real-time simulation and ML model inference capabilities.
-
-## 📋 Table of Contents
+## Table of Contents
 
 - [Overview](#overview)
 - [Features](#features)
@@ -16,6 +12,7 @@ A professional, offline-capable web application for processing, merging, and ana
 - [Project Structure](#project-structure)
 - [Installation](#installation)
 - [Usage](#usage)
+- [ML Models and Frequencies](#ml-models-and-frequencies)
 - [Data Pipeline](#data-pipeline)
 - [API Endpoints](#api-endpoints)
 - [Configuration](#configuration)
@@ -24,7 +21,7 @@ A professional, offline-capable web application for processing, merging, and ana
 
 ---
 
-## 🎯 Overview
+## Overview
 
 This application is designed for **air-gapped environments** where internet connectivity is not available. It provides a complete offline solution for:
 
@@ -35,438 +32,245 @@ This application is designed for **air-gapped environments** where internet conn
 - **ML model inference** for predicting MD (Metallization Degree) and C (Carbon) values
 - **Residence time calculations** based on production rates (WTH15)
 
-### Use Cases
-
-- Industrial data analysis in secure/isolated environments
-- Offline monitoring and prediction systems
-- Batch processing of historical furnace data
-- Real-time simulation of production processes
-- Quality prediction and process optimization
+**Use cases:** industrial data analysis in secure/isolated environments, offline monitoring and prediction, batch processing of historical furnace data, real-time simulation, and quality prediction.
 
 ---
 
-## ✨ Features
+## Features
 
 ### Core Capabilities
 
-- ✅ **100% Offline Operation** - No CDN dependencies, all assets bundled locally
-- ✅ **Batch File Upload** - Process 50+ files simultaneously per category
-- ✅ **Robust File Handling** - Automatic encoding detection (UTF-8, CP1256, Latin1, etc.)
-- ✅ **Multi-format Support** - CSV and Excel (.xlsx) files
-- ✅ **Smart Delimiter Detection** - Handles comma, semicolon, and tab-separated files
-- ✅ **Jalali Calendar Support** - Automatic conversion from Persian to Gregorian dates
-- ✅ **Data Deduplication** - Removes duplicate timestamps automatically
-- ✅ **Residence Time Calculation** - Physics-based time synchronization
-- ✅ **Real-time Simulation** - Step-through simulation with 5-minute intervals
-- ✅ **ML Model Inference** - Predict MD and C values using pre-trained models
-- ✅ **Status Validation** - Automatic detection of shutdown/startup periods (WTH15 < 80)
+| Feature | Description |
+|--------|-------------|
+| **100% Offline** | No CDN dependencies; all assets bundled locally |
+| **Batch Upload** | Process 50+ files per category in one run |
+| **Robust File Handling** | Auto encoding (UTF-8, CP1256, Latin1, etc.) and delimiter detection |
+| **Multi-format** | CSV and Excel (.xlsx) |
+| **Jalali Support** | Automatic Persian-to-Gregorian date conversion |
+| **Residence Time** | Physics-based time synchronization |
+| **Simulation** | Step-through with configurable intervals |
+| **ML Inference** | Predict MD and C using pre-trained models (1h, 15T, 30T) |
+| **Status Validation** | Shutdown/startup detection (e.g. WTH15 &lt; 80) |
 
 ### User Interface
 
-- Modern, responsive dashboard with Tailwind CSS
-- Real-time updates via HTMX polling
-- Persian (RTL) language support
-- Drag & drop file upload
-- Progress tracking and status indicators
-- Interactive simulation controls
+- Responsive dashboard (Tailwind CSS)
+- Real-time updates via HTMX
+- Persian (RTL) UI support
+- File upload with progress; simulation controls (Start, Pause, Resume, Reset)
 
 ---
 
-## 🛠 Technology Stack
+## Technology Stack
 
-### Backend
-- **Flask 3.0+** - Web framework and routing
-- **Pandas 2.0+** - Data processing and manipulation
-- **NumPy** - Numerical computations
-- **Joblib** - Model serialization
-- **LightGBM** - Machine learning models
-- **Scikit-learn** - ML utilities
+| Layer | Technologies |
+|-------|--------------|
+| **Backend** | Flask 3.0+, Pandas 2.0+, NumPy, Joblib, LightGBM, Scikit-learn |
+| **Frontend** | HTMX, Alpine.js, Tailwind CSS (standalone, no CDN) |
+| **Data** | jdatetime, persiantools, openpyxl |
 
-### Frontend
-- **HTMX** - Dynamic HTML updates without JavaScript framework
-- **Alpine.js** - Lightweight reactive components
-- **Tailwind CSS** - Utility-first CSS framework (standalone)
-
-### Data Processing
-- **jdatetime** - Jalali calendar support
-- **persiantools** - Persian date utilities
-- **openpyxl** - Excel file reading
-
-### Architecture
-- **Pure Python Logic** - Core processing separated from web layer
-- **Session-based State** - In-memory simulation runners
-- **Modular Design** - Easy to extend and maintain
+Architecture: pure Python core logic, session-based in-memory state, modular design.
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
-my_inference_app/
-├── app.py                 # Flask application and routing
-├── core_logic.py          # Core data processing (pure Python)
-├── simulation.py          # Simulation engine
-├── setup_assets.py        # Asset downloader for offline setup
-├── requirements.txt       # Python dependencies
-├── README.md              # This file
+DRAI-Offline-Prototype/
+├── app.py                  # Flask app, routes, session, model discovery
+├── core_logic.py           # Data processing, merging, inference
+├── simulation.py           # Simulation engine
+├── setup_assets.py         # Download HTMX, Alpine, Tailwind to static/vendor
+├── requirements.txt
+├── README.md
 │
-├── models/                # ML model storage
-│   └── dummy_model.pkl    # Placeholder model
+├── analysis/               # (Optional) Pipeline outputs; add to .gitignore
+│   ├── darts_pipeline_freq_1h_*/
+│   │   ├── MDNC_M_D/model_MDNC_M_D.pkl
+│   │   └── MDNC_C/model_MDNC_C.pkl
+│   ├── darts_pipeline_freq_15T_*/
+│   └── darts_pipeline_freq_30T_*/
 │
-├── static/
-│   └── vendor/            # Offline JavaScript/CSS libraries
-│       ├── htmx.min.js
-│       ├── alpine.min.js
-│       └── tailwind.js
+├── models/                 # Optional fallback for 30T models
+│   ├── model_MDNC_M_D.pkl
+│   └── model_MDNC_C.pkl
+│
+├── static/vendor/          # Offline JS/CSS (from setup_assets.py)
+│   ├── htmx.min.js
+│   ├── alpine.min.js
+│   └── tailwind.js
 │
 ├── templates/
-│   ├── index.html         # Main dashboard
+│   ├── index.html
 │   └── partials/
-│       ├── dashboard.html # Real-time dashboard fragment
-│       └── results.html   # Results display
+│       ├── dashboard.html
+│       └── results.html
 │
-└── uploads/               # Temporary file storage (auto-cleaned)
+└── uploads/                 # Temporary uploads
 ```
 
 ---
 
-## 🚀 Installation
+## Installation
 
 ### Prerequisites
 
-- Python 3.8 or higher
-- pip package manager
+- Python 3.8+
+- pip
 
-### Step 1: Clone or Navigate to Project
-
-```bash
-cd /path/to/DRAI-OFFLINE/my_inference_app
-```
-
-### Step 2: Create Virtual Environment
+### Steps
 
 ```bash
+# 1. Go to project root
+cd /path/to/DRAI-Offline-Prototype
+
+# 2. Create and activate virtual environment
 python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
+source venv/bin/activate   # Windows: venv\Scripts\activate
 
-### Step 3: Install Dependencies
-
-```bash
+# 3. Install dependencies
 pip install -r requirements.txt
-```
 
-### Step 4: Setup Offline Assets
-
-Download required frontend libraries (HTMX, Alpine.js, Tailwind CSS):
-
-```bash
+# 4. Download offline frontend assets (run once with network)
 python setup_assets.py
 ```
 
-This will download and save all JavaScript/CSS files to `static/vendor/` for offline operation.
+### Optional: ML models
 
-### Step 5: (Optional) Add ML Models
-
-Place your trained models in the `models/` directory:
-
-```
-models/
-├── model_MDNC_M_D.pkl  # Model for MD prediction
-└── model_MDNC_C.pkl    # Model for C prediction
-```
-
-Or the application will auto-detect models from:
-```
-../DRAI-Modeling/data/analysis/darts_pipeline_freq_30T_*/MDNC_*/
-```
+- **Preferred:** Place pipeline outputs in `analysis/` (see [ML Models and Frequencies](#ml-models-and-frequencies)). The app discovers models by frequency (1h, 15T, 30T).
+- **Fallback for 30T only:** Put `model_MDNC_M_D.pkl` and `model_MDNC_C.pkl` in `models/`.
+- **Alternative:** Use a sibling project at `../DRAI-Modeling/data/analysis/` with the same pipeline folder structure; the app will look there if `analysis/` is missing.
 
 ---
 
-## 📖 Usage
+## Usage
 
-### Starting the Server
+### Start the server
 
 ```bash
 python app.py
 ```
 
-The server will start on:
-- Local: `http://127.0.0.1:8000`
-- Network: `http://0.0.0.0:8000` (accessible from other devices)
+- **Local:** http://127.0.0.1:8000  
+- **Network:** http://0.0.0.0:8000
 
-### Using the Application
+### Workflow
 
-1. **Open Browser**: Navigate to `http://127.0.0.1:8000`
-
-2. **Upload Files**:
-   - **Process Tags**: Select one or more CSV/Excel files containing sensor data
-   - **Pellet Data**: Select one or more files with pellet input lab data
-   - **MD/Quality Data**: Select one or more files with output quality measurements
-
-3. **Process Data**: Click "آپلود و پردازش" (Upload and Process)
-   - System will automatically:
-     - Detect file encoding and delimiter
-     - Convert Jalali dates to Gregorian
-     - Merge all files
-     - Calculate residence times
-     - Validate data
-
-4. **Start Simulation**: Click "شروع شبیه‌سازی" (Start Simulation)
-   - Dashboard updates every 5 seconds
-   - Shows current timestamp, WTH15, predicted MD/C, and system status
-
-5. **Control Simulation**:
-   - **Pause**: Temporarily stop simulation
-   - **Resume**: Continue from where paused
-   - **Reset**: Start from beginning
+1. **Open** the app in a browser.
+2. **Select model frequency** (Prediction interval): **30 min (30T)**, **15 min (15T)**, or **1 hour (1h)**. This chooses which pair of MD/C models is used.
+3. **Upload files** for each category (Process Tags, Pellet Data, MD/Quality Data), then click **Upload and Process**.
+4. **Start simulation**; the dashboard updates periodically with current data and MD/C predictions.
+5. **Control:** Pause, Resume, or Reset as needed.
 
 ---
 
-## 🔄 Data Pipeline
+## ML Models and Frequencies
 
-### Input Files
+The app uses **two models per run:** one for **MD** (Metallization Degree) and one for **C** (Carbon). Models are grouped by **time frequency**:
 
-#### Process Tags Files
-- **Format**: CSV or Excel
-- **Required Columns**: Date/Time columns (Jalali or Gregorian)
-- **Content**: Sensor readings (WTH15, temperatures, pressures, etc.)
-- **Frequency**: Typically 5-minute intervals
+| Frequency | Folder pattern | Description |
+|----------|----------------|-------------|
+| **30T**  | `darts_pipeline_freq_30T_*` | 30-minute interval |
+| **15T**  | `darts_pipeline_freq_15T_*` | 15-minute interval |
+| **1h**   | `darts_pipeline_freq_1h_*`  | 1-hour interval |
 
-#### Pellet Data Files
-- **Format**: CSV or Excel
-- **Required Columns**: Date/Time, Pellet properties (%FeO, CCS, etc.)
-- **Content**: Laboratory analysis of input pellets
-- **Frequency**: Daily or monthly (will be resampled)
+Each pipeline folder must contain:
 
-#### MD/Quality Data Files
-- **Format**: CSV or Excel
-- **Required Columns**: Date/Time, Quality metrics (M_D, C, etc.)
-- **Content**: Output quality measurements
-- **Frequency**: Lab results (irregular intervals)
+- `MDNC_M_D/model_MDNC_M_D.pkl`
+- `MDNC_C/model_MDNC_C.pkl`
 
-### Processing Steps
+**Discovery order:**
 
-1. **File Loading**:
-   - Try multiple encodings: UTF-8, CP1256, Latin1, UTF-16, etc.
-   - Try multiple delimiters: comma, semicolon, tab
-   - Handle malformed lines gracefully
+1. `analysis/` inside the project (if present)
+2. `../DRAI-Modeling/data/analysis/` (sibling project)
+3. For **30T only:** fallback to `models/model_MDNC_M_D.pkl` and `models/model_MDNC_C.pkl`
 
-2. **Date Conversion**:
-   - Auto-detect date columns (case-insensitive)
-   - Convert Jalali (Shamsi) to Gregorian datetime
-   - Sort by timestamp
-
-3. **Stacking**:
-   - Combine all files from each category
-   - Remove duplicates based on timestamp
-   - Add source file tracking
-
-4. **Merging**:
-   - Create 5-minute reference time grid
-   - Merge Process Tags (prefix: `INST_`)
-   - Merge Pellet data (prefix: `PELLET_`) using `merge_asof`
-   - Merge MD/Quality data (prefix: `MDNC_`) using `merge_asof`
-
-5. **Residence Time Calculation**:
-   ```
-   enter_deltatime_hours = 600 / ((WTH15 + 270) / 2)
-   exit_deltatime_hours = 1200 / ((WTH15 + 270) / 2)
-   ```
-
-6. **Validation**:
-   - Mark rows as "Shutdown" if WTH15 < 80
-   - Mark rows as "Normal" if WTH15 >= 80
+The user selects the frequency in the upload form; that choice is stored in the session and used for both upload-time processing and dashboard inference.
 
 ---
 
-## 🔌 API Endpoints
+## Data Pipeline
 
-### Web Interface
-- `GET /` - Main dashboard page
+### Input file types
 
-### File Upload
-- `POST /upload` - Upload and process files
-  - **Body**: `multipart/form-data`
-  - **Fields**: `process_files[]`, `pellet_files[]`, `md_files[]`
-  - **Response**: JSON with success status and statistics
+| Type | Format | Content |
+|------|--------|---------|
+| **Process Tags** | CSV/Excel | Sensor data (date/time, WTH15, etc.); often 5-min intervals |
+| **Pellet Data** | CSV/Excel | Lab data for input pellets (date/time, %FeO, CCS, etc.) |
+| **MD/Quality Data** | CSV/Excel | Output quality (date/time, M_D, C, etc.) |
 
-### Simulation Control
-- `POST /simulation/start` - Start simulation
-- `POST /simulation/pause` - Pause simulation
-- `POST /simulation/resume` - Resume simulation
-- `POST /simulation/reset` - Reset to beginning
+### Processing steps
 
-### Dashboard Updates
-- `GET /update-dashboard` - Get current simulation state (HTMX polling)
-  - **Returns**: HTML fragment with current data and predictions
-
----
-
-## ⚙️ Configuration
-
-### File Size Limits
-
-Default maximum upload size: **500 MB** (configurable in `app.py`)
-
-```python
-app.config["MAX_CONTENT_LENGTH"] = 500 * 1024 * 1024  # 500 MB
-```
-
-### Model Paths
-
-The application searches for models in this order:
-
-1. `models/model_MDNC_M_D.pkl` and `models/model_MDNC_C.pkl`
-2. `../DRAI-Modeling/data/analysis/darts_pipeline_freq_30T_*/MDNC_*/model_*.pkl`
-
-### Session Management
-
-Sessions are stored in-memory. For production, consider:
-- Redis for session storage
-- Database for persistent state
-- File-based session storage
+1. **Load:** try multiple encodings and delimiters; handle malformed lines.
+2. **Dates:** detect date columns; convert Jalali to Gregorian; sort by time.
+3. **Stack:** merge files per category; deduplicate by timestamp.
+4. **Merge:** 5-minute reference grid; merge Process Tags, Pellet, and MD/Quality (e.g. `merge_asof` for Pellet and MD).
+5. **Residence time:**  
+   `enter_deltatime_hours = 600 / ((WTH15 + 270) / 2)`  
+   `exit_deltatime_hours = 1200 / ((WTH15 + 270) / 2)`
+6. **Validation:** e.g. mark "Shutdown" when WTH15 &lt; 80, "Normal" otherwise.
 
 ---
 
-## 🐛 Troubleshooting
+## API Endpoints
 
-### Common Issues
-
-#### 1. "No valid data found" Error
-
-**Cause**: Files couldn't be read due to encoding/delimiter issues
-
-**Solution**:
-- Check file format (CSV or Excel)
-- Verify file is not corrupted
-- Check console logs for specific error messages
-
-#### 2. "Pellet file must have georgian_datetime" Error
-
-**Cause**: Date columns not detected
-
-**Solution**:
-- Ensure files have date/time columns
-- Column names should include: `date`, `time`, `Year`, `Month`, `Day`, or `georgian_datetime`
-- Check that dates are in valid format
-
-#### 3. Encoding Errors
-
-**Cause**: File encoding not recognized
-
-**Solution**:
-- System tries multiple encodings automatically
-- If all fail, file will be read with error replacement
-- Check file encoding manually if needed
-
-#### 4. Simulation Not Starting
-
-**Cause**: No data loaded or session expired
-
-**Solution**:
-- Re-upload files
-- Check browser console for errors
-- Verify session is active
-
-### Debug Mode
-
-Enable detailed logging by checking terminal output. The application logs:
-- File loading progress
-- Encoding/delimiter detection
-- Date conversion results
-- Merge statistics
-- Error messages with stack traces
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/` | Main dashboard page |
+| POST | `/upload` | Upload and process files. Body: `multipart/form-data` with `process_files`, `pellet_files`, `md_files`, and optional `model_frequency` (`1h`, `15T`, `30T`). Returns JSON with success and stats. |
+| POST | `/simulation/start` | Start simulation |
+| POST | `/simulation/pause` | Pause simulation |
+| POST | `/simulation/resume` | Resume simulation |
+| POST | `/simulation/reset` | Reset simulation |
+| GET | `/update-dashboard` | HTMX polling; returns HTML fragment with current state and predictions |
 
 ---
 
-## 💻 Development
+## Configuration
 
-### Code Structure
-
-- **`app.py`**: Web layer - routing, sessions, API endpoints
-- **`core_logic.py`**: Business logic - data processing, merging, inference
-- **`simulation.py`**: Simulation engine - step-through data playback
-- **`templates/`**: Jinja2 templates for HTML rendering
-
-### Adding New Features
-
-1. **New Data Source**: Extend `load_and_stack_csvs()` in `core_logic.py`
-2. **New Calculations**: Add functions to `core_logic.py` (keep pure Python)
-3. **New UI Components**: Add to `templates/index.html` or create new partials
-4. **New Endpoints**: Add routes to `app.py`
-
-### Testing
-
-For offline testing:
-1. Use sample CSV files with known structure
-2. Verify date conversion accuracy
-3. Test with various encodings and delimiters
-4. Validate merge results
-
-### Production Deployment
-
-**Warning**: The Flask development server is not suitable for production.
-
-For production, use:
-- **Gunicorn**: `gunicorn -w 4 -b 0.0.0.0:8000 app:app`
-- **uWSGI**: Configure with proper workers
-- **Docker**: Containerize the application
-- **Reverse Proxy**: Use Nginx or Apache
+- **Upload size limit:** 500 MB (set in `app.py` via `MAX_CONTENT_LENGTH`).
+- **Model paths:** See [ML Models and Frequencies](#ml-models-and-frequencies). No config file; discovery is automatic from `analysis/`, `DRAI-Modeling`, and `models/`.
+- **Sessions:** In-memory. For production, consider Redis, a database, or file-based sessions.
 
 ---
 
-## 📝 Notes
+## Troubleshooting
 
-### Offline Requirements
+| Issue | Cause | Action |
+|-------|--------|--------|
+| "No valid data found" | Encoding/delimiter or bad file | Check CSV/Excel format and encoding; see server logs. |
+| "Pellet file must have georgian_datetime" | Date column not detected | Ensure date/time columns; names may include `date`, `time`, `Year`, `Month`, `Day`, or `georgian_datetime`. |
+| Encoding errors | Unrecognized encoding | App tries several encodings; verify file encoding if all fail. |
+| Simulation not starting | No data or expired session | Re-upload files; check browser console and session. |
+| No predictions | No models for selected frequency | Ensure `analysis/` (or fallback for 30T) contains the correct `.pkl` files for the chosen frequency. |
 
-- All JavaScript/CSS libraries must be in `static/vendor/`
-- No CDN dependencies allowed
-- Models must be local or in sibling directory
-
-### Performance
-
-- Large file batches (50+ files) may take several minutes to process
-- Simulation updates every 5 seconds (configurable)
-- Memory usage scales with dataset size
-
-### Security
-
-- Change `SECRET_KEY` in production
-- Validate file types and sizes
-- Sanitize file names
-- Consider authentication for production use
+**Debug:** Watch terminal output for file loading, encoding, merge stats, and tracebacks.
 
 ---
 
-## 📄 License
+## Development
 
-This project is part of the DRAI (Direct Reduced Iron) analysis system.
+- **app.py:** Routes, session, model discovery, upload/simulation endpoints.
+- **core_logic.py:** File loading, merging, residence time, inference.
+- **simulation.py:** Step-through simulation state.
+- **templates:** Jinja2; use partials for HTMX fragments.
 
----
+**Production:** Do not use the Flask dev server. Use e.g. **Gunicorn:**  
+`gunicorn -w 4 -b 0.0.0.0:8000 app:app`  
+and a reverse proxy (Nginx/Apache) as needed.
 
-## 👥 Contributors
-
-Developed for offline/air-gapped industrial data analysis environments.
-
----
-
-## 🔗 Related Projects
-
-- `DRAI-Modeling/` - Data science pipeline and model training
-- Model files location: `DRAI-Modeling/data/analysis/`
+**Security:** Set a strong `SECRET_KEY`; validate file types and sizes; consider authentication.
 
 ---
 
-<div dir="rtl">
+## Related Projects
 
-## 📞 پشتیبانی
-
-برای سوالات و مشکلات، لطفاً لاگ‌های ترمینال و مرورگر را بررسی کنید.
-
-</div>
+- **DRAI-Modeling:** data science pipeline and model training. Model outputs can be placed in `DRAI-Modeling/data/analysis/` with the same folder layout; this app will use them when `analysis/` is not used.
 
 ---
 
-**Last Updated**: February 2026
+## License and Contributors
 
+Part of the DRAI (Direct Reduced Iron) analysis system, for offline/air-gapped industrial data analysis.
+
+**Last updated:** February 2026

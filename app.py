@@ -5,6 +5,7 @@
 
 import os
 from pathlib import Path
+from typing import Optional, Tuple
 from flask import Flask, render_template, request, jsonify, session
 import uuid
 
@@ -15,30 +16,61 @@ app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 500 * 1024 * 1024  # 500 MB (increased for batch uploads)
 app.config["SECRET_KEY"] = "drai-offline-secret-key-change-in-production"  # For sessions
 
-# مسیرهای پروژه
+# Project paths
 BASE_DIR = Path(__file__).resolve().parent
 UPLOADS_DIR = BASE_DIR / "uploads"
 MODELS_DIR = BASE_DIR / "models"
-# Try to find models in local models/ directory first, then check DRAI-Modeling
+# Analysis locations: in-project analysis/ first, then sibling DRAI-Modeling
+ANALYSIS_DIR = BASE_DIR / "analysis"
 DRAI_MODELING_DIR = BASE_DIR.parent / "DRAI-Modeling" / "data" / "analysis"
-# Look for a model directory (using 30T frequency as default)
-_model_subdirs = list(DRAI_MODELING_DIR.glob("darts_pipeline_freq_30T_*")) if DRAI_MODELING_DIR.exists() else []
-DEFAULT_MODEL_MD = None
-DEFAULT_MODEL_C = None
-if _model_subdirs:
-    # Use the first matching directory
-    model_base = _model_subdirs[0]
-    md_path = model_base / "MDNC_M_D" / "model_MDNC_M_D.pkl"
-    c_path = model_base / "MDNC_C" / "model_MDNC_C.pkl"
-    if md_path.exists():
-        DEFAULT_MODEL_MD = md_path
-    if c_path.exists():
-        DEFAULT_MODEL_C = c_path
-# Fallback to local models directory
-if DEFAULT_MODEL_MD is None:
-    DEFAULT_MODEL_MD = MODELS_DIR / "model_MDNC_M_D.pkl"
-if DEFAULT_MODEL_C is None:
-    DEFAULT_MODEL_C = MODELS_DIR / "model_MDNC_C.pkl"
+
+# Supported model frequencies: 1h, 15T, 30T (each has MD and C models)
+FREQUENCY_OPTIONS = ("1h", "15T", "30T")
+# Glob patterns for pipeline folders per frequency
+FREQUENCY_PATTERNS = {
+    "1h": "darts_pipeline_freq_1h_*",
+    "15T": "darts_pipeline_freq_15T_*",
+    "30T": "darts_pipeline_freq_30T_*",
+}
+
+
+def _find_pipeline_base(frequency: str) -> Optional[Path]:
+    """Return first matching pipeline directory for the given frequency, or None."""
+    pattern = FREQUENCY_PATTERNS.get(frequency)
+    if not pattern:
+        return None
+    for base in (ANALYSIS_DIR, DRAI_MODELING_DIR):
+        if not base.exists():
+            continue
+        matches = list(base.glob(pattern))
+        if matches:
+            return matches[0]
+    return None
+
+
+def get_model_paths_for_frequency(frequency: str) -> Tuple[Optional[Path], Optional[Path]]:
+    """
+    Return (model_MD_path, model_C_path) for the given frequency (1h, 15T, 30T).
+    Falls back to models/ for 30T if no pipeline folder is found (backward compatibility).
+    """
+    model_base = _find_pipeline_base(frequency)
+    if model_base:
+        md_path = model_base / "MDNC_M_D" / "model_MDNC_M_D.pkl"
+        c_path = model_base / "MDNC_C" / "model_MDNC_C.pkl"
+        return (md_path if md_path.exists() else None, c_path if c_path.exists() else None)
+    # Fallback: local models/ only for 30T (legacy single set)
+    if frequency == "30T":
+        md = MODELS_DIR / "model_MDNC_M_D.pkl"
+        c = MODELS_DIR / "model_MDNC_C.pkl"
+        return (md if md.exists() else None, c if c.exists() else None)
+    return (None, None)
+
+
+# Default frequency when not selected (30T to match previous behavior)
+DEFAULT_MODEL_FREQUENCY = "30T"
+MODELS_BY_FREQUENCY = {
+    freq: get_model_paths_for_frequency(freq) for freq in FREQUENCY_OPTIONS
+}
 
 UPLOADS_DIR.mkdir(exist_ok=True)
 MODELS_DIR.mkdir(exist_ok=True)
@@ -120,11 +152,17 @@ def upload():
     if 'session_id' not in session:
         session['session_id'] = str(uuid.uuid4())
     session_id = session['session_id']
-    
+    # Model frequency: 1h, 15T, or 30T (default 30T)
+    model_frequency = request.form.get("model_frequency", DEFAULT_MODEL_FREQUENCY)
+    if model_frequency not in FREQUENCY_OPTIONS:
+        model_frequency = DEFAULT_MODEL_FREQUENCY
+    session["model_frequency"] = model_frequency
+    model_md_path, model_c_path = get_model_paths_for_frequency(model_frequency)
+
     try:
         # Process and merge files directly from file objects
         # core_logic will handle temporary file saving internally
-        print(f"\n[Upload] Processing files for session {session_id}...")
+        print(f"\n[Upload] Processing files for session {session_id} (model frequency: {model_frequency})...")
         print(f"  • Process files: {len(process_files)}")
         print(f"  • Pellet files: {len(pellet_files)}")
         print(f"  • MD/Quality files: {len(md_files)}")
@@ -133,8 +171,8 @@ def upload():
             process_files=process_files,
             pellet_files=pellet_files,
             md_files=md_files,
-            model_md_path=str(DEFAULT_MODEL_MD) if DEFAULT_MODEL_MD and DEFAULT_MODEL_MD.exists() else None,
-            model_c_path=str(DEFAULT_MODEL_C) if DEFAULT_MODEL_C and DEFAULT_MODEL_C.exists() else None
+            model_md_path=str(model_md_path) if model_md_path else None,
+            model_c_path=str(model_c_path) if model_c_path else None
         )
         
         # Create simulation runner
@@ -245,16 +283,15 @@ def update_dashboard():
     current_data = runner.get_current_step()
     progress = runner.get_progress()
     
-    # Run inference if models are available
+    # Run inference using models for the session's selected frequency
     predictions = None
     if current_data:
-        # Create a single-row dataframe for inference
         import pandas as pd
         df_row = pd.DataFrame([current_data])
-        
-        model_md = core_logic.load_model(str(DEFAULT_MODEL_MD)) if DEFAULT_MODEL_MD and DEFAULT_MODEL_MD.exists() else None
-        model_c = core_logic.load_model(str(DEFAULT_MODEL_C)) if DEFAULT_MODEL_C and DEFAULT_MODEL_C.exists() else None
-        
+        freq = session.get("model_frequency", DEFAULT_MODEL_FREQUENCY)
+        model_md_path, model_c_path = get_model_paths_for_frequency(freq)
+        model_md = core_logic.load_model(str(model_md_path)) if model_md_path else None
+        model_c = core_logic.load_model(str(model_c_path)) if model_c_path else None
         if model_md or model_c:
             predictions = core_logic.run_inference_for_md_c(model_md, model_c, df_row)
     
