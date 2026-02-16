@@ -14,68 +14,88 @@
     <header class="mb-8 text-center">
       <h1 class="text-3xl font-bold text-slate-800">داشبورد مانیتورینگ و پیش‌بینی DRAI</h1>
       <p class="mt-2 text-slate-600">سیستم شبیه‌سازی آفلاین برای پردازش و پیش‌بینی داده‌های کوره</p>
+      <p class="mt-1 text-sm text-slate-500">می‌توانید چندین فایل CSV را به صورت دسته‌ای آپلود کنید</p>
     </header>
 
     <main class="space-y-6">
       <!-- Upload Section -->
       <section class="rounded-2xl border-2 border-slate-300 bg-white p-6 shadow-sm">
-        <h2 class="mb-4 text-xl font-semibold text-slate-800">آپلود فایل‌های CSV</h2>
+        <h2 class="mb-4 text-xl font-semibold text-slate-800">آپلود فایل‌های CSV (دسته‌ای)</h2>
         <form
           id="upload-form"
           x-data="uploadForm()"
           @submit.prevent="handleUpload"
+          enctype="multipart/form-data"
           class="space-y-4"
         >
-          <!-- Process Tags File -->
+          <!-- Process Tags Files -->
           <div>
             <label class="mb-2 block text-sm font-medium text-slate-700">
-              فایل Process Tags (داده‌های سنسورهای فرآیندی)
+              فایل‌های Process Tags (داده‌های سنسورهای فرآیندی)
+              <span class="text-xs text-slate-500">(می‌توانید چندین فایل را انتخاب کنید)</span>
             </label>
             <input
               type="file"
-              name="process_tags"
-              accept=".csv"
-              x-ref="processFile"
+              name="process_files"
+              accept=".csv,.xlsx"
+              multiple
+              x-ref="processFiles"
+              @change="updateFileCount('process', $event)"
               class="block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-slate-100 file:px-4 file:py-2 file:font-medium file:text-slate-700 hover:file:bg-slate-200"
             />
+            <p x-show="fileCounts.process > 0" class="mt-1 text-xs text-slate-500">
+              <span x-text="fileCounts.process"></span> فایل انتخاب شده
+            </p>
           </div>
 
-          <!-- Pellet Data File -->
+          <!-- Pellet Data Files -->
           <div>
             <label class="mb-2 block text-sm font-medium text-slate-700">
-              فایل Pellet Data (داده‌های آزمایشگاهی ورودی گندله)
+              فایل‌های Pellet Data (داده‌های آزمایشگاهی ورودی گندله)
+              <span class="text-xs text-slate-500">(می‌توانید چندین فایل را انتخاب کنید)</span>
             </label>
             <input
               type="file"
-              name="pellet_data"
-              accept=".csv"
-              x-ref="pelletFile"
+              name="pellet_files"
+              accept=".csv,.xlsx"
+              multiple
+              x-ref="pelletFiles"
+              @change="updateFileCount('pellet', $event)"
               class="block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-slate-100 file:px-4 file:py-2 file:font-medium file:text-slate-700 hover:file:bg-slate-200"
             />
+            <p x-show="fileCounts.pellet > 0" class="mt-1 text-xs text-slate-500">
+              <span x-text="fileCounts.pellet"></span> فایل انتخاب شده
+            </p>
           </div>
 
-          <!-- MD/Quality Data File -->
+          <!-- MD/Quality Data Files -->
           <div>
             <label class="mb-2 block text-sm font-medium text-slate-700">
-              فایل MD/Quality Data (داده‌های کیفی خروجی)
+              فایل‌های MD/Quality Data (داده‌های کیفی خروجی)
+              <span class="text-xs text-slate-500">(می‌توانید چندین فایل را انتخاب کنید)</span>
             </label>
             <input
               type="file"
-              name="mdnc_data"
-              accept=".csv"
-              x-ref="mdncFile"
+              name="md_files"
+              accept=".csv,.xlsx"
+              multiple
+              x-ref="mdFiles"
+              @change="updateFileCount('md', $event)"
               class="block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-slate-100 file:px-4 file:py-2 file:font-medium file:text-slate-700 hover:file:bg-slate-200"
             />
+            <p x-show="fileCounts.md > 0" class="mt-1 text-xs text-slate-500">
+              <span x-text="fileCounts.md"></span> فایل انتخاب شده
+            </p>
           </div>
 
           <!-- Upload Button -->
           <button
             type="submit"
-            :disabled="uploading"
+            :disabled="uploading || !hasFiles()"
             class="inline-flex items-center gap-2 rounded-xl bg-slate-800 px-6 py-3 font-medium text-white shadow-md transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 disabled:opacity-50"
           >
             <span x-show="uploading" class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-            <span x-text="uploading ? 'در حال آپلود...' : 'آپلود و پردازش'"></span>
+            <span x-text="uploading ? 'در حال آپلود و پردازش...' : 'آپلود و پردازش'"></span>
           </button>
 
           <!-- Upload Status -->
@@ -149,15 +169,70 @@
         dataLoaded: false,
         simRunning: false,
         simPaused: false,
+        fileCounts: {
+          process: 0,
+          pellet: 0,
+          md: 0
+        },
+
+        updateFileCount(type, event) {
+          const files = event.target.files;
+          this.fileCounts[type] = files ? files.length : 0;
+        },
+
+        hasFiles() {
+          return this.fileCounts.process > 0 && this.fileCounts.pellet > 0 && this.fileCounts.md > 0;
+        },
 
         async handleUpload() {
           this.uploading = true;
           this.uploadMessage = '';
 
+          // Validate files before upload
+          const processFiles = this.$refs.processFiles.files;
+          const pelletFiles = this.$refs.pelletFiles.files;
+          const mdFiles = this.$refs.mdFiles.files;
+          
+          if (processFiles.length === 0) {
+            this.uploadMessage = 'لطفاً حداقل یک فایل Process Tags انتخاب کنید.';
+            this.uploadSuccess = false;
+            this.uploading = false;
+            return;
+          }
+          
+          if (pelletFiles.length === 0) {
+            this.uploadMessage = 'لطفاً حداقل یک فایل Pellet انتخاب کنید.';
+            this.uploadSuccess = false;
+            this.uploading = false;
+            return;
+          }
+          
+          if (mdFiles.length === 0) {
+            this.uploadMessage = 'لطفاً حداقل یک فایل MD/Quality انتخاب کنید.';
+            this.uploadSuccess = false;
+            this.uploading = false;
+            return;
+          }
+
           const formData = new FormData();
-          formData.append('process_tags', this.$refs.processFile.files[0]);
-          formData.append('pellet_data', this.$refs.pelletFile.files[0]);
-          formData.append('mdnc_data', this.$refs.mdncFile.files[0]);
+          
+          // Append all process files
+          for (let i = 0; i < processFiles.length; i++) {
+            formData.append('process_files', processFiles[i]);
+          }
+          
+          // Append all pellet files
+          for (let i = 0; i < pelletFiles.length; i++) {
+            formData.append('pellet_files', pelletFiles[i]);
+          }
+          
+          // Append all MD files
+          for (let i = 0; i < mdFiles.length; i++) {
+            formData.append('md_files', mdFiles[i]);
+          }
+          
+          // Debug log
+          console.log(`Uploading: ${processFiles.length} process, ${pelletFiles.length} pellet, ${mdFiles.length} md files`);
 
           try {
             const response = await fetch('/upload', {
