@@ -281,4 +281,15 @@ def analyze():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    # Suppress Flask development server warning for offline/air-gapped environments
+    import logging
+    logging.getLogger('werkzeug').setLevel(logging.ERROR)
+    
+    print("\n" + "="*80)
+    print("DRAI OFFLINE INFERENCE APP")
+    print("="*80)
+    print(f"Server running on: http://127.0.0.1:5000")
+    print(f"Network access: http://0.0.0.0:5000")
+    print("="*80 + "\n")
+    
+    app.run(debug=True, host="0.0.0.0", port=5000, use_reloader=False)
