@@ -12,7 +12,7 @@ import core_logic
 import simulation
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB
+app.config["MAX_CONTENT_LENGTH"] = 500 * 1024 * 1024  # 500 MB (increased for batch uploads)
 app.config["SECRET_KEY"] = "drai-offline-secret-key-change-in-production"  # For sessions
 
 # مسیرهای پروژه
@@ -60,17 +60,60 @@ def index():
 @app.route("/upload", methods=["POST"])
 def upload():
     """
-    دریافت سه فایل CSV (Process Tags, Pellet, MD/Quality) و پردازش.
+    دریافت چندین فایل CSV برای هر دسته (Process Tags, Pellet, MD/Quality) و پردازش.
     """
-    # Get files
-    process_file = request.files.get("process_tags")
-    pellet_file = request.files.get("pellet_data")
-    mdnc_file = request.files.get("mdnc_data")
+    # Get file lists (multiple files per category)
+    process_files = request.files.getlist("process_files")
+    pellet_files = request.files.getlist("pellet_files")
+    md_files = request.files.getlist("md_files")
     
-    if not all([process_file, pellet_file, mdnc_file]):
+    # Debug: log what we received
+    print(f"\n[Upload Debug]")
+    print(f"  • process_files received: {len(process_files)} items")
+    print(f"  • pellet_files received: {len(pellet_files)} items")
+    print(f"  • md_files received: {len(md_files)} items")
+    
+    # Also check all file keys in request
+    all_file_keys = list(request.files.keys())
+    print(f"  • All file keys in request: {all_file_keys}")
+    
+    # Debug: print filenames
+    if process_files:
+        print(f"  • Process filenames: {[f.filename for f in process_files[:5]]}")
+    if pellet_files:
+        print(f"  • Pellet filenames: {[f.filename for f in pellet_files[:5]]}")
+    if md_files:
+        print(f"  • MD filenames: {[f.filename for f in md_files[:5]]}")
+    
+    # Filter out empty files - accept both .csv and .xlsx
+    def is_valid_file(f):
+        if not f or not f.filename:
+            return False
+        filename_lower = f.filename.lower()
+        return filename_lower.endswith('.csv') or filename_lower.endswith('.xlsx')
+    
+    process_files = [f for f in process_files if is_valid_file(f)]
+    pellet_files = [f for f in pellet_files if is_valid_file(f)]
+    md_files = [f for f in md_files if is_valid_file(f)]
+    
+    print(f"  • After filtering - process: {len(process_files)}, pellet: {len(pellet_files)}, md: {len(md_files)}")
+    
+    if not process_files:
         return jsonify({
             "success": False,
-            "error": "لطفاً هر سه فایل را آپلود کنید: Process Tags, Pellet, MD/Quality"
+            "error": "لطفاً حداقل یک فایل Process Tags آپلود کنید."
+        }), 400
+    
+    if not pellet_files:
+        return jsonify({
+            "success": False,
+            "error": "لطفاً حداقل یک فایل Pellet آپلود کنید."
+        }), 400
+    
+    if not md_files:
+        return jsonify({
+            "success": False,
+            "error": "لطفاً حداقل یک فایل MD/Quality آپلود کنید."
         }), 400
     
     # Ensure session exists
@@ -78,31 +121,20 @@ def upload():
         session['session_id'] = str(uuid.uuid4())
     session_id = session['session_id']
     
-    # Save files temporarily
-    saved_paths = {}
     try:
-        process_path = UPLOADS_DIR / f"{session_id}_process_tags.csv"
-        pellet_path = UPLOADS_DIR / f"{session_id}_pellet.csv"
-        mdnc_path = UPLOADS_DIR / f"{session_id}_mdnc.csv"
-        
-        process_file.save(str(process_path))
-        pellet_file.save(str(pellet_path))
-        mdnc_file.save(str(mdnc_path))
-        
-        saved_paths = {
-            'process': str(process_path),
-            'pellet': str(pellet_path),
-            'mdnc': str(mdnc_path)
-        }
-        
-        # Process and merge files
+        # Process and merge files directly from file objects
+        # core_logic will handle temporary file saving internally
         print(f"\n[Upload] Processing files for session {session_id}...")
+        print(f"  • Process files: {len(process_files)}")
+        print(f"  • Pellet files: {len(pellet_files)}")
+        print(f"  • MD/Quality files: {len(md_files)}")
+        
         result = core_logic.process_data(
-            process_tags_path=saved_paths['process'],
-            pellet_path=saved_paths['pellet'],
-            mdnc_path=saved_paths['mdnc'],
-            model_md_path=str(DEFAULT_MODEL_MD) if DEFAULT_MODEL_MD.exists() else None,
-            model_c_path=str(DEFAULT_MODEL_C) if DEFAULT_MODEL_C.exists() else None
+            process_files=process_files,
+            pellet_files=pellet_files,
+            md_files=md_files,
+            model_md_path=str(DEFAULT_MODEL_MD) if DEFAULT_MODEL_MD and DEFAULT_MODEL_MD.exists() else None,
+            model_c_path=str(DEFAULT_MODEL_C) if DEFAULT_MODEL_C and DEFAULT_MODEL_C.exists() else None
         )
         
         # Create simulation runner
@@ -111,7 +143,13 @@ def upload():
         
         return jsonify({
             "success": True,
-            "message": f"فایل‌ها با موفقیت پردازش شدند. {result['stats']['rows']} ردیف داده آماده است.",
+            "message": (
+                f"فایل‌ها با موفقیت پردازش شدند. "
+                f"{result['stats']['rows']:,} ردیف داده آماده است. "
+                f"(Process: {result['stats']['process_files']}, "
+                f"Pellet: {result['stats']['pellet_files']}, "
+                f"MD: {result['stats']['md_files']})"
+            ),
             "stats": result['stats']
         })
         
@@ -122,15 +160,6 @@ def upload():
             "success": False,
             "error": f"خطا در پردازش: {str(e)}"
         }), 500
-    
-    finally:
-        # Clean up uploaded files after processing
-        for path in saved_paths.values():
-            try:
-                if os.path.exists(path):
-                    os.unlink(path)
-            except OSError:
-                pass
 
 
 @app.route("/simulation/start", methods=["POST"])
@@ -223,8 +252,8 @@ def update_dashboard():
         import pandas as pd
         df_row = pd.DataFrame([current_data])
         
-        model_md = core_logic.load_model(str(DEFAULT_MODEL_MD)) if DEFAULT_MODEL_MD.exists() else None
-        model_c = core_logic.load_model(str(DEFAULT_MODEL_C)) if DEFAULT_MODEL_C.exists() else None
+        model_md = core_logic.load_model(str(DEFAULT_MODEL_MD)) if DEFAULT_MODEL_MD and DEFAULT_MODEL_MD.exists() else None
+        model_c = core_logic.load_model(str(DEFAULT_MODEL_C)) if DEFAULT_MODEL_C and DEFAULT_MODEL_C.exists() else None
         
         if model_md or model_c:
             predictions = core_logic.run_inference_for_md_c(model_md, model_c, df_row)
