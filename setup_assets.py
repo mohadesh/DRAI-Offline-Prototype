@@ -1,13 +1,12 @@
 """
 Offline environment setup script.
 
-1) Downloads HTMX, Alpine.js, and Tailwind and saves them under static/vendor.
-2) If no model exists, creates a dummy model for testing and saves it under models/.
+Downloads HTMX, Alpine.js, and Tailwind and saves them under static/vendor.
 
 Run this script once with internet access to download assets; the app then runs fully offline.
+Place real models (model_MDNC_M_D.pkl, model_MDNC_C.pkl) in models/ for inference.
 """
 
-import os
 import ssl
 import urllib.error
 import urllib.request
@@ -16,8 +15,6 @@ from pathlib import Path
 # Project paths
 BASE_DIR = Path(__file__).resolve().parent
 VENDOR_DIR = BASE_DIR / "static" / "vendor"
-MODELS_DIR = BASE_DIR / "models"
-DUMMY_MODEL_PATH = MODELS_DIR / "dummy_model.pkl"
 
 # URLs for downloading (used only by this script; HTML references local paths)
 ASSETS = [
@@ -72,27 +69,6 @@ def download_file(url: str, dest_path: Path) -> bool:
         return False
 
 
-def create_dummy_model() -> None:
-    """Create a dummy sklearn model and save with joblib for testing when no real model exists."""
-    if DUMMY_MODEL_PATH.exists():
-        print("  Dummy model already exists; skipping.")
-        return
-    try:
-        import joblib
-        import numpy as np
-        from sklearn.dummy import DummyClassifier
-
-        MODELS_DIR.mkdir(parents=True, exist_ok=True)
-        X = np.random.randn(20, 3)
-        y = np.array([0, 1] * 10)
-        model = DummyClassifier(strategy="stratified")
-        model.fit(X, y)
-        joblib.dump(model, DUMMY_MODEL_PATH)
-        print(f"  Dummy model created: {DUMMY_MODEL_PATH.relative_to(BASE_DIR)}")
-    except ImportError as e:
-        print(f"  Skipping dummy model: scikit-learn and joblib required. ({e})")
-
-
 def main() -> None:
     print("Setting up offline assets...\n")
 
@@ -104,11 +80,7 @@ def main() -> None:
         if download_file(asset["url"], dest):
             ok += 1
     print(f"\nDownloaded {ok}/{len(ASSETS)} asset(s).")
-
-    print("\nChecking dummy model...")
-    create_dummy_model()
-
-    print("\nDone. Assets are in static/vendor; dummy model (if created) is in models/.")
+    print("\nDone. Assets are in static/vendor.")
 
 
 if __name__ == "__main__":

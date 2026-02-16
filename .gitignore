@@ -5,5 +5,5 @@ __pycache__/
 uploads/
 *.csv
 *.xlsx
+analysis/
 models/*.pkl
-!models/dummy_model.pkl
