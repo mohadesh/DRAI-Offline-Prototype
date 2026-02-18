@@ -289,19 +289,21 @@ def update_dashboard():
     Endpoint for HTMX polling to get current simulation state.
     Returns HTML fragment to update dashboard.
     """
+    print("\n[DEBUG] 1. Entering /update-dashboard...") # DEBUG PRINT
+
     if 'session_id' not in session:
         return render_template("partials/dashboard.html", error="Session not found")
-    
+
     session_id = session['session_id']
     runner = _simulation_runners.get(session_id)
-    
+
     if runner is None:
         return render_template("partials/dashboard.html", error="No data loaded")
-    
+
     # Get current step
     current_data = runner.get_current_step()
     progress = runner.get_progress()
-    
+
     # Run inference using models for the session's selected frequency
     predictions = None
     if current_data:
@@ -309,15 +311,40 @@ def update_dashboard():
         df_row = pd.DataFrame([current_data])
         freq = session.get("model_frequency", DEFAULT_MODEL_FREQUENCY)
         model_md_path, model_c_path = get_model_paths_for_frequency(freq)
-        model_md = core_logic.load_model(str(model_md_path)) if model_md_path else None
-        model_c = core_logic.load_model(str(model_c_path)) if model_c_path else None
+
+        model_md = None
+        model_c = None
+
+        print(f"[DEBUG] 2. Attempting to load models for frequency: {freq}") # DEBUG PRINT
+        if model_md_path:
+            print(f"[DEBUG] 2a. Loading MD model from: {model_md_path}") # DEBUG PRINT
+            model_md = core_logic.load_model(str(model_md_path))
+            if model_md:
+                print("[DEBUG] 2b. MD model LOADED SUCCESSFULLY.") # DEBUG PRINT
+            else:
+                print("[DEBUG] 2b. MD model FAILED to load.") # DEBUG PRINT
+
+        if model_c_path:
+            print(f"[DEBUG] 2c. Loading C model from: {model_c_path}") # DEBUG PRINT
+            model_c = core_logic.load_model(str(model_c_path))
+            if model_c:
+                print("[DEBUG] 2d. C model LOADED SUCCESSFULLY.") # DEBUG PRINT
+            else:
+                print("[DEBUG] 2d. C model FAILED to load.") # DEBUG PRINT
+
         if model_md or model_c:
+            print("[DEBUG] 3. Running inference...") # DEBUG PRINT
             predictions = core_logic.run_inference_for_md_c(model_md, model_c, df_row)
-    
+            print("[DEBUG] 4. Inference COMPLETE.") # DEBUG PRINT
+        else:
+             print("[DEBUG] 3. Skipping inference as no models were loaded.") # DEBUG PRINT
+
+
     # Advance to next step (for next poll)
     if runner.is_running and not runner.is_paused:
         runner.get_next_step()
-    
+
+    print("[DEBUG] 5. Rendering template...") # DEBUG PRINT
     return render_template(
         "partials/dashboard.html",
         current_data=current_data,
