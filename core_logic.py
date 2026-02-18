@@ -206,13 +206,23 @@ def load_and_process_batch(files, prefix=""):
 # ==============================================================================
 # 2. MODEL INTERFACE
 # ==============================================================================
+# Track failed paths to avoid repeating the same error (e.g. missing 'darts')
+_load_model_failed_paths = set()
 
 def load_model(path):
+    global _load_model_failed_paths
     try:
         if not path: return None
-        return joblib.load(path)
+        obj = joblib.load(path)
+        # If we had failed before for this path, it's now OK (e.g. after installing darts)
+        _load_model_failed_paths.discard(path)
+        return obj
     except Exception as e:
-        print(f"Error loading model {path}: {e}")
+        if path not in _load_model_failed_paths:
+            _load_model_failed_paths.add(path)
+            print(f"Error loading model {path}: {e}")
+            if "darts" in str(e).lower():
+                print("  → Install the darts library: pip install darts  (required for pipeline .pkl models)")
         return None
 
 def run_inference_for_md_c(model_md, model_c, df_row):

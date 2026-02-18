@@ -7,3 +7,5 @@ jdatetime>=5.2.0
 persiantools>=3.0.0
 numpy>=1.24.0
 openpyxl>=3.0.0
+# Required to load pipeline .pkl models (Darts LightGBMModel etc.)
+darts>=0.38.0
