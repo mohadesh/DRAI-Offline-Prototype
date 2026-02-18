@@ -285,24 +285,31 @@ def update_dashboard():
     # 2. Run Inference (Only if simulation is active/has data)
     if current_data:
         try:
-            # Prepare single-row DataFrame
-            df_row = pd.DataFrame([current_data])
-            
-            # Identify models
+            # Pass a window of data for inference (Darts models need past_covariates history)
+            # Use last 96 rows (e.g. 8h at 5min) so lags are satisfied; fallback to single row
+            window_size = 96
+            start_idx = max(0, runner.current_index - window_size)
+            end_idx = runner.current_index + 1
+            df_window = runner.df.iloc[start_idx:end_idx]
+            df_for_inference = df_window.copy()
+
             freq = session.get("model_frequency", DEFAULT_MODEL_FREQUENCY)
             md_path, c_path = get_model_paths_for_frequency(freq)
-            
-            # Retrieve from CACHE (Fast!)
             model_md = get_cached_model(md_path)
             model_c = get_cached_model(c_path)
-            
+
             if model_md or model_c:
-                # Perform inference
-                predictions = core_logic.run_inference_for_md_c(model_md, model_c, df_row)
+                predictions = core_logic.run_inference_for_md_c(model_md, model_c, df_for_inference)
+                # Ensure we always return a dict with MD/C keys for the template
+                if predictions is None:
+                    predictions = {'MD': None, 'C': None}
+            else:
+                logger.debug("No models loaded for current frequency")
         except Exception as e:
             logger.error(f"Inference error: {e}")
-            # Do not crash the dashboard, just show empty predictions
-            pass
+            import traceback
+            traceback.print_exc()
+            predictions = {'MD': None, 'C': None}
 
     # 3. Advance Simulation (if running)
     if runner.is_running and not runner.is_paused:
