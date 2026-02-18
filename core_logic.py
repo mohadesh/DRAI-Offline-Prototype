@@ -225,29 +225,138 @@ def load_model(path):
                 print("  → Install the darts library: pip install darts  (required for pipeline .pkl models)")
         return None
 
+def _prepare_inference_df(df):
+    """
+    Prepare dataframe for inference: ensure INST_ prefix for process (instrument) columns
+    so that column names match what Darts pipeline expects (INST_*, PELLET_*).
+    Returns a copy with datetime index and aligned columns.
+    """
+    if df is None or df.empty:
+        return pd.DataFrame()
+    out = df.copy()
+    # Prefix process/instrument columns with INST_ (Darts training uses INST_*)
+    skip = {
+        'georgian_datetime', 'jalali_datetime_str', 'enter_georgian_datetime',
+        'calculated_residence_hours', 'georgian_datetime_pellet_idx'
+    }
+    rename_map = {}
+    for c in out.columns:
+        if c in skip:
+            continue
+        if c.startswith('PELLET_') or c.startswith('MDNC_') or c.startswith('INST_'):
+            continue
+        try:
+            if np.issubdtype(out[c].dtype, np.number):
+                rename_map[c] = f'INST_{c}'
+        except Exception:
+            pass
+    if rename_map:
+        out = out.rename(columns=rename_map)
+    # Set time index if we have georgian_datetime
+    if 'georgian_datetime' in out.columns:
+        out = out.set_index(pd.to_datetime(out['georgian_datetime'])).sort_index()
+    return out
+
+
+def _try_sklearn_predict(model, X, feature_names=None):
+    """Try sklearn-style predict(X). Returns 1D array or None."""
+    try:
+        if feature_names is not None and hasattr(X, 'columns'):
+            # Align to model's expected feature order
+            missing = set(feature_names) - set(X.columns)
+            if missing:
+                return None
+            X = X[feature_names]
+        if hasattr(X, 'values'):
+            X = X.values
+        if len(X.shape) == 1:
+            X = X.reshape(1, -1)
+        pred = model.predict(X)
+        pred = np.atleast_1d(np.asarray(pred))
+        return pred
+    except Exception:
+        return None
+
+
+def _try_darts_predict(model, cov_df, freq='5min'):
+    """
+    Try Darts-style predict(n=1, series=..., past_covariates=...).
+    cov_df must have datetime index and at least enough rows for model lags (e.g. 24).
+    Returns first forecast value or None.
+    """
+    try:
+        from darts import TimeSeries
+    except ImportError:
+        return None
+    if cov_df.empty or len(cov_df) < 2:
+        return None
+    # Covariate columns: INST_* and PELLET_*
+    cov_cols = [c for c in cov_df.columns if c.startswith('INST_') or c.startswith('PELLET_')]
+    if not cov_cols:
+        return None
+    cov_sub = cov_df[cov_cols].fillna(0).astype(np.float32)
+    if not isinstance(cov_sub.index, pd.DatetimeIndex):
+        return None
+    try:
+        cov_ts = TimeSeries.from_dataframe(
+            cov_sub, freq=freq, fill_missing_dates=False, fillna_value=0
+        )
+        # Dummy target series (same time index) - required by Darts predict
+        dummy_df = pd.DataFrame({'target': np.zeros(len(cov_sub), dtype=np.float32)}, index=cov_sub.index)
+        dummy_target = TimeSeries.from_dataframe(
+            dummy_df, freq=freq, fill_missing_dates=False, fillna_value=0
+        )
+        forecast = model.predict(n=1, series=dummy_target, past_covariates=cov_ts)
+        if forecast is not None and len(forecast) > 0:
+            return float(forecast.values().flatten()[0])
+    except Exception as e:
+        print(f"[Inference] Darts predict failed: {e}")
+    return None
+
+
 def run_inference_for_md_c(model_md, model_c, df_row):
+    """
+    Run MD and C inference. df_row can be a single-row DataFrame or a window (multiple rows)
+    for Darts models that need past_covariates history.
+    Returns dict {'MD': float or None, 'C': float or None}.
+    """
     predictions = {'MD': None, 'C': None}
     if df_row is None or df_row.empty:
         return predictions
-    
-    # Preprocessing for inference
-    X = df_row.select_dtypes(include=[np.number]).fillna(0)
-    
-    if len(X.shape) == 1:
-        X = X.values.reshape(1, -1)
-    
-    try:
-        if model_md:
-            pred = model_md.predict(X)
-            predictions['MD'] = float(pred[0]) if len(pred) > 0 else None
-            
-        if model_c:
-            pred = model_c.predict(X)
-            predictions['C'] = float(pred[0]) if len(pred) > 0 else None
-    except Exception as e:
-        # Avoid crashing app on inference error
-        pass
-        
+
+    inference_df = _prepare_inference_df(df_row)
+    if inference_df.empty:
+        print("[Inference] No inference dataframe after preparation.")
+        return predictions
+
+    # Numeric columns for sklearn-style and for Darts covariates
+    num_cols = [c for c in inference_df.columns if np.issubdtype(inference_df[c].dtype, np.number)]
+    if not num_cols:
+        print("[Inference] No numeric columns for inference.")
+        return predictions
+
+    # Last row as 2D array for sklearn-style
+    last_row = inference_df.iloc[[-1]][num_cols].fillna(0)
+    X = last_row.values.astype(np.float32)
+
+    for name, model in [('MD', model_md), ('C', model_c)]:
+        if model is None:
+            continue
+        try:
+            # 1) Try sklearn-style: model.predict(X)
+            pred = _try_sklearn_predict(model, last_row, getattr(model, 'feature_names_in_', None))
+            if pred is not None and len(pred) > 0:
+                predictions[name] = float(pred.flat[0])
+                continue
+            # 2) Try Darts-style: need window of past_covariates
+            pred_val = _try_darts_predict(model, inference_df, freq=TARGET_FREQ)
+            if pred_val is not None:
+                predictions[name] = pred_val
+        except Exception as e:
+            print(f"[Inference] Error for model {name}: {e}")
+            import traceback
+            traceback.print_exc()
+
     return predictions
 
 # ==============================================================================
@@ -284,11 +393,13 @@ def process_data(process_files, pellet_files, md_files, model_md_path=None, mode
     gc.collect()
 
     # --- Step 2: Calculate Residence Time & Enter Time ---
-    # Based on ProcessTags.py formula
+    # Per ProcessTags.py / technical meeting: residence_time_hours = 600 / ((WTH15 + 270) / 2)
+    # Input (Pellet) is then aligned to (Output Time - Residence Time) so the model sees the
+    # correct "input material" for the current "output quality".
     wth_col = next((c for c in master_df.columns if 'wth15' in c.lower()), None)
     
     if wth_col:
-        # Formula: Residence Time (hr) = 600 / ((WTH15 + 270) / 2)
+        # Formula: residence_time_hours = 600 / ((WTH15 + 270) / 2)
         # We handle NaNs by filling with a default (e.g., 80 for temp) to avoid division errors initially
         
         # [FIX] .fillna(method='ffill') is deprecated in pandas 2.1+
