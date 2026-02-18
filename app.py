@@ -51,7 +51,10 @@ def _find_pipeline_base(frequency: str) -> Optional[Path]:
 def get_model_paths_for_frequency(frequency: str) -> Tuple[Optional[Path], Optional[Path]]:
     """
     Return (model_MD_path, model_C_path) for the given frequency (1h, 15T, 30T).
-    Falls back to models/ for 30T if no pipeline folder is found (backward compatibility).
+    Search order:
+      1) analysis/darts_pipeline_freq_<freq>_*/ (inside my_inference_app)
+      2) ../DRAI-Modeling/data/analysis/darts_pipeline_freq_<freq>_*/
+      3) For 30T only: models/model_MDNC_M_D.pkl and models/model_MDNC_C.pkl
     """
     model_base = _find_pipeline_base(frequency)
     if model_base:
@@ -74,6 +77,19 @@ MODELS_BY_FREQUENCY = {
 
 UPLOADS_DIR.mkdir(exist_ok=True)
 MODELS_DIR.mkdir(exist_ok=True)
+
+
+def _log_model_locations():
+    """Print where the app looks for models (for user reference)."""
+    print("[Models] Search locations:")
+    print(f"  1) {ANALYSIS_DIR} (in-project analysis/)")
+    print(f"  2) {DRAI_MODELING_DIR} (DRAI-Modeling/data/analysis/)")
+    print(f"  3) For 30T only: {MODELS_DIR} (model_MDNC_M_D.pkl, model_MDNC_C.pkl)")
+    for freq in FREQUENCY_OPTIONS:
+        md, c = get_model_paths_for_frequency(freq)
+        status = "OK" if (md and c) else "MISSING"
+        print(f"  [{freq}] {status}  MD={md or '-'}  C={c or '-'}")
+    print()
 
 # In-memory storage for simulation runners (in production, use Redis or database)
 # Key: session_id, Value: SimulationRunner instance
@@ -158,6 +174,9 @@ def upload():
         model_frequency = DEFAULT_MODEL_FREQUENCY
     session["model_frequency"] = model_frequency
     model_md_path, model_c_path = get_model_paths_for_frequency(model_frequency)
+
+    # Log model paths so user can verify location (see README / راهنمای مدل‌ها)
+    print(f"[Models] frequency={model_frequency} → MD: {model_md_path or 'NOT FOUND'}, C: {model_c_path or 'NOT FOUND'}")
 
     try:
         # Process and merge files directly from file objects
@@ -347,6 +366,7 @@ if __name__ == "__main__":
     print("="*80)
     print(f"Server running on: http://127.0.0.1:{port}")
     print(f"Network access: http://0.0.0.0:{port}")
-    print("="*80 + "\n")
+    print("="*80)
+    _log_model_locations()
 
     app.run(debug=True, host="0.0.0.0", port=port, use_reloader=False)
