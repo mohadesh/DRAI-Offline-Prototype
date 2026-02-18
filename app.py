@@ -317,16 +317,36 @@ def analyze():
     return upload()
 
 
+def _find_free_port(start_port: int, max_tries: int = 10) -> int:
+    """Return first port in [start_port, start_port+max_tries) that is free to bind."""
+    import socket
+    for i in range(max_tries):
+        port = start_port + i
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.bind(("", port))
+                return port
+        except OSError:
+            continue
+    raise OSError(f"No free port in range {start_port}-{start_port + max_tries - 1}")
+
+
 if __name__ == "__main__":
     # Suppress Flask development server warning for offline/air-gapped environments
     import logging
     logging.getLogger('werkzeug').setLevel(logging.ERROR)
-    
+
+    # Port: from env PORT, or first free port in 8000, 8001, ...
+    base_port = int(os.environ.get("PORT", "8000"))
+    port = _find_free_port(base_port)
+    if port != base_port:
+        print(f"Port {base_port} is in use, using port {port} instead.\n")
+
     print("\n" + "="*80)
     print("DRAI OFFLINE INFERENCE APP")
     print("="*80)
-    print(f"Server running on: http://127.0.0.1:8000")
-    print(f"Network access: http://0.0.0.0:8000")
+    print(f"Server running on: http://127.0.0.1:{port}")
+    print(f"Network access: http://0.0.0.0:{port}")
     print("="*80 + "\n")
-    
-    app.run(debug=True, host="0.0.0.0", port=8000, use_reloader=False)
+
+    app.run(debug=True, host="0.0.0.0", port=port, use_reloader=False)
