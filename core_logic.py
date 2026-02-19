@@ -23,7 +23,6 @@ MAX_LINES_LOGGED = 5000
 LINES_AFTER_CAP = 500  # After cap, log every N lines as progress
 LOG_STDERR_LINES = 200  # Max stderr lines to include in exception
 
-
 def run_script(script_name, args):
     """
     Run a Python script as a subprocess. Streams output with a line cap to avoid OOM.
@@ -139,7 +138,6 @@ def run_script(script_name, args):
                 except Exception:
                     pass
 
-
 def save_uploaded_files(files, folder):
     """Save uploaded file objects to folder; return list of saved paths."""
     saved = []
@@ -150,8 +148,10 @@ def save_uploaded_files(files, folder):
             saved.append(str(path))
     return saved
 
-
-def process_data(process_files, pellet_files, md_files, model_md_path=None, model_c_path=None):
+# =========================================================================
+# ===                           تغییرات اصلی اینجا هستند                         ===
+# =========================================================================
+def process_data(process_files, pellet_files, md_files, resample_rate="30T", model_md_path=None, model_c_path=None):
     """
     Main entry called by app.py. Runs ProcessTags -> Pellet -> MDnC -> merging.
     Returns dict with success, merged_df, stats. Raises on failure.
@@ -159,7 +159,7 @@ def process_data(process_files, pellet_files, md_files, model_md_path=None, mode
     session_id = str(uuid.uuid4())
     session_dir = UPLOADS_DIR / session_id
     session_dir.mkdir(exist_ok=True)
-    logger.info("Starting session: %s", session_id)
+    logger.info("Starting session: %s with frequency: %s", session_id, resample_rate)
 
     try:
         process_paths = save_uploaded_files(process_files, session_dir)
@@ -173,32 +173,33 @@ def process_data(process_files, pellet_files, md_files, model_md_path=None, mode
         output_md = session_dir / "MD_Cleaned.csv"
         output_merged = session_dir / "Merged_Final.csv"
 
+        # --- تغییر ۱: استفاده از resample_rate به جای مقدار ثابت
         run_script("ProcessTags.py", [
             "--input", process_paths[0],
             "--output", str(output_process),
-            "--resample-rate", "30min",
+            "--resample-rate", resample_rate,
         ])
 
         run_script("Pellet.py", ["--input", pellet_paths[0], "--output", str(output_pellet)])
 
         run_script("MDnC.py", ["--input", md_paths[0], "--output", str(output_md)])
-
+        
+        # --- تغییر ۲: استفاده از resample_rate در اسکریپت merging
         run_script("merging.py", [
             "--process", str(output_process),
             "--pellet", str(output_pellet),
             "--md", str(output_md),
             "--output", str(output_merged),
-            "--rate", "5T",
+            "--rate", resample_rate,
         ])
 
         if not output_merged.exists():
             raise FileNotFoundError("Merged file was not created. Check script outputs above.")
 
-        final_df = pd.read_csv(output_merged)
-        if "georgian_datetime" in final_df.columns:
-            final_df["georgian_datetime"] = pd.to_datetime(final_df["georgian_datetime"], errors="coerce")
+        # اطمینان از خواندن صحیح ستون تاریخ
+        final_df = pd.read_csv(output_merged, parse_dates=['georgian_datetime'])
         logger.info("Session %s done. Rows: %d", session_id, len(final_df))
-
+        
         return {
             "success": True,
             "merged_df": final_df,
@@ -213,8 +214,8 @@ def process_data(process_files, pellet_files, md_files, model_md_path=None, mode
             pass
         raise e
 
-
-def run_inference_for_md_c(model_md, model_c, df_window):
+# --- بدون تغییر در این بخش ---
+def run_inference_for_md_c(model_md, model_c, df_window, frequency="30T"):
     """Run Darts inference for MD and C. Returns dict with MD and C values or None on error."""
     try:
         from darts import TimeSeries
@@ -229,10 +230,12 @@ def run_inference_for_md_c(model_md, model_c, df_window):
     if "georgian_datetime" in df.columns:
         df["georgian_datetime"] = pd.to_datetime(df["georgian_datetime"], errors="coerce")
         df = df.set_index("georgian_datetime")
+        
     numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
     if not numeric_cols:
         return None
-    series = TimeSeries.from_dataframe(df[numeric_cols].fillna(0))
+        
+    series = TimeSeries.from_dataframe(df[numeric_cols].fillna(0), freq=frequency)
 
     out = {}
     if model_md is not None:
