@@ -1,40 +1,44 @@
-# core_logic.py
+# core_logic.py — Orchestrates pipeline scripts. Safe subprocess execution to avoid OOM/crash.
 import os
 import sys
 import uuid
 import shutil
 import logging
-import pandas as pd
 import subprocess
+import threading
 from pathlib import Path
 
-# تنظیمات لاگینگ
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+import pandas as pd
+import numpy as np
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent
 UPLOADS_DIR = BASE_DIR / "uploads"
-OUTPUT_DIR = BASE_DIR / "outputs"  # پوشه برای خروجی‌های میانی
-
-# اطمینان از وجود پوشه‌ها
 UPLOADS_DIR.mkdir(exist_ok=True)
-OUTPUT_DIR.mkdir(exist_ok=True)
+
+# Limit lines printed from subprocess to avoid IDE buffer OOM
+MAX_LINES_LOGGED = 5000
+LINES_AFTER_CAP = 500  # After cap, log every N lines as progress
+LOG_STDERR_LINES = 200  # Max stderr lines to include in exception
+
 
 def run_script(script_name, args):
     """
-    اجرای یک اسکریپت پایتون دیگر به عنوان یک فرآیند جداگانه.
-    خروجی را به صورت زنده (Real-time) در ترمینال چاپ می‌کند.
+    Run a Python script as a subprocess. Streams output with a line cap to avoid OOM.
+    Closes pipes properly; on failure raises a clear exception without crashing the parent.
     """
     script_path = BASE_DIR / script_name
     if not script_path.exists():
         raise FileNotFoundError(f"Script not found: {script_path}")
 
-    command = [sys.executable, str(script_path)] + args
-    
-    logger.info(f"🚀 Running {script_name} with args: {args}")
-    
+    command = [sys.executable, str(script_path)] + [str(a) for a in args]
+    logger.info("Running %s (args: %s)", script_name, args[:6])
+
+    process = None
+    stderr_lines = []
     try:
-        # استفاده از Popen برای خواندن خروجی به صورت زنده
         process = subprocess.Popen(
             command,
             stdout=subprocess.PIPE,
@@ -42,175 +46,211 @@ def run_script(script_name, args):
             text=True,
             bufsize=1,
             universal_newlines=True,
-            encoding='utf-8', 
-            errors='replace' # جلوگیری از کرش کردن روی کاراکترهای خاص فارسی
+            encoding="utf-8",
+            errors="replace",
+            cwd=str(BASE_DIR),
         )
 
-        # خواندن و چاپ خط به خط خروجی استاندارد
-        while True:
-            output = process.stdout.readline()
-            if output == '' and process.poll() is not None:
-                break
-            if output:
-                print(f"[{script_name}] {output.strip()}")
+        lines_logged = [0]  # use list so inner function can mutate
+        lines_skipped = [0]
+        prefix = f"[{script_name}] "
 
-        # بررسی خطاهای احتمالی
-        stderr_output = process.stderr.read()
-        if stderr_output:
-            print(f"[{script_name} ERROR] {stderr_output.strip()}")
+        def read_stdout():
+            try:
+                for line in iter(process.stdout.readline, ""):
+                    if not line:
+                        break
+                    line = line.rstrip()
+                    if lines_logged[0] < MAX_LINES_LOGGED:
+                        try:
+                            print(prefix + line, flush=True)
+                        except (OSError, UnicodeEncodeError):
+                            pass
+                        lines_logged[0] += 1
+                    else:
+                        lines_skipped[0] += 1
+                        if lines_skipped[0] % LINES_AFTER_CAP == 0:
+                            try:
+                                print(prefix + f"... ({lines_skipped[0]} more lines suppressed)", flush=True)
+                            except (OSError, UnicodeEncodeError):
+                                pass
+            except (BrokenPipeError, OSError, ValueError):
+                pass
+            finally:
+                try:
+                    process.stdout.close()
+                except Exception:
+                    pass
 
-        if process.returncode != 0:
-            raise RuntimeError(f"{script_name} failed with return code {process.returncode}")
+        def read_stderr():
+            try:
+                for line in iter(process.stderr.readline, ""):
+                    if line:
+                        stderr_lines.append(line.rstrip())
+            except (BrokenPipeError, OSError, ValueError):
+                pass
+            finally:
+                try:
+                    process.stderr.close()
+                except Exception:
+                    pass
 
-        logger.info(f"✅ {script_name} completed successfully.")
+        out_thread = threading.Thread(target=read_stdout, daemon=True)
+        err_thread = threading.Thread(target=read_stderr, daemon=True)
+        out_thread.start()
+        err_thread.start()
+        returncode = process.wait()
+        out_thread.join(timeout=5.0)
+        err_thread.join(timeout=2.0)
 
-    except Exception as e:
-        logger.error(f"❌ Error running {script_name}: {e}")
+        if returncode != 0:
+            tail = "\n".join(stderr_lines[-LOG_STDERR_LINES:]) if stderr_lines else "(no stderr)"
+            raise RuntimeError(
+                f"{script_name} failed with exit code {returncode}. Stderr:\n{tail}"
+            )
+
+        if lines_skipped[0] > 0:
+            logger.info("%s produced %d extra lines (not printed).", script_name, lines_skipped[0])
+        logger.info("%s completed successfully.", script_name)
+
+    except FileNotFoundError:
         raise
+    except RuntimeError:
+        raise
+    except Exception as e:
+        logger.exception("Error running %s", script_name)
+        raise RuntimeError(f"Subprocess error running {script_name}: {e}") from e
+    finally:
+        if process is not None:
+            try:
+                process.stdout.close()
+            except Exception:
+                pass
+            try:
+                process.stderr.close()
+            except Exception:
+                pass
+            try:
+                process.terminate()
+                process.wait(timeout=5)
+            except Exception:
+                try:
+                    process.kill()
+                except Exception:
+                    pass
+
 
 def save_uploaded_files(files, folder):
-    """ذخیره لیست فایل‌های آپلود شده در یک پوشه خاص"""
-    saved_paths = []
-    for file in files:
-        if file:
-            file_path = folder / file.filename
-            file.save(file_path)
-            saved_paths.append(str(file_path))
-    return saved_paths
+    """Save uploaded file objects to folder; return list of saved paths."""
+    saved = []
+    for f in files:
+        if f and getattr(f, "filename", None):
+            path = folder / f.filename
+            f.save(str(path))
+            saved.append(str(path))
+    return saved
 
-def load_model(path):
-    """لود کردن مدل (به صورت Placeholder برای جلوگیری از خطای ایمپورت اگر فایل نبود)"""
-    import pickle
-    try:
-        with open(path, "rb") as f:
-            return pickle.load(f)
-    except Exception as e:
-        logger.error(f"Failed to load model from {path}: {e}")
-        return None
-
-def run_inference_for_md_c(model_md, model_c, df_window):
-    """
-    اجرای اینفرنس روی مدل‌های Darts.
-    در اینجا فرض بر این است که df_window دیتافریم آماده است.
-    """
-    try:
-        # تبدیل دیتافریم به TimeSeries (مختص Darts)
-        from darts import TimeSeries
-        
-        # نکته: نام ستون زمان باید دقیق باشد، فرض بر 'date' یا ایندکس است
-        # اگر ایندکس datetime است:
-        series = TimeSeries.from_dataframe(df_window)
-
-        pred_md = model_md.predict(n=1, series=series)
-        pred_c = model_c.predict(n=1, series=series)
-
-        return {
-            "MD": pred_md.values()[0][0],
-            "C": pred_c.values()[0][0]
-        }
-    except Exception as e:
-        logger.error(f"Inference Error: {e}")
-        return None
 
 def process_data(process_files, pellet_files, md_files, model_md_path=None, model_c_path=None):
     """
-    تابع اصلی که توسط app.py صدا زده می‌شود.
-    تمام مراحل را مدیریت و اسکریپت‌ها را زنجیره‌ای اجرا می‌کند.
+    Main entry called by app.py. Runs ProcessTags -> Pellet -> MDnC -> merging.
+    Returns dict with success, merged_df, stats. Raises on failure.
     """
     session_id = str(uuid.uuid4())
     session_dir = UPLOADS_DIR / session_id
     session_dir.mkdir(exist_ok=True)
-    
-    logger.info(f"🏁 Starting processing for Session: {session_id}")
+    logger.info("Starting session: %s", session_id)
 
     try:
-        # 1. ذخیره فایل‌های ورودی در پوشه موقت
         process_paths = save_uploaded_files(process_files, session_dir)
         pellet_paths = save_uploaded_files(pellet_files, session_dir)
         md_paths = save_uploaded_files(md_files, session_dir)
+        if not process_paths or not pellet_paths or not md_paths:
+            raise ValueError("Missing one or more required input files.")
 
-        # تعریف مسیرهای خروجی میانی
         output_process = session_dir / "Process_Cleaned.csv"
         output_pellet = session_dir / "Pellet_Cleaned.csv"
         output_md = session_dir / "MD_Cleaned.csv"
         output_merged = session_dir / "Merged_Final.csv"
 
-        # ---------------------------------------------------------
-        # STEP 1: ProcessTags.py
-        # ---------------------------------------------------------
-        # نکته: فرض می‌کنیم فایل اول پروسس فایل اصلی است
         run_script("ProcessTags.py", [
             "--input", process_paths[0],
             "--output", str(output_process),
-            "--resample-rate", "30T"
+            "--resample-rate", "30min",
         ])
 
-        # ---------------------------------------------------------
-        # STEP 2: Pellet.py
-        # ---------------------------------------------------------
-        # فرض: پلت می‌تواند چند فایل باشد یا یکی. فعلا اولی را پاس می‌دهیم
-        run_script("Pellet.py", [
-            "--input", pellet_paths[0],
-            "--output", str(output_pellet)
-        ])
+        run_script("Pellet.py", ["--input", pellet_paths[0], "--output", str(output_pellet)])
 
-        # ---------------------------------------------------------
-        # STEP 3: MDnC.py
-        # ---------------------------------------------------------
-        run_script("MDnC.py", [
-            "--input", md_paths[0],
-            "--output", str(output_md)
-        ])
+        run_script("MDnC.py", ["--input", md_paths[0], "--output", str(output_md)])
 
-        # ---------------------------------------------------------
-        # STEP 4: Merging (merging.py)
-        # ---------------------------------------------------------
         run_script("merging.py", [
             "--process", str(output_process),
             "--pellet", str(output_pellet),
             "--md", str(output_md),
-            "--output", str(output_merged)
+            "--output", str(output_merged),
+            "--rate", "5T",
         ])
 
-        # ---------------------------------------------------------
-        # STEP 5: Load Result & Return
-        # ---------------------------------------------------------
-        if output_merged.exists():
-            final_df = pd.read_csv(output_merged)
-            
-            # Ensure georgian_datetime is proper datetime
-            if 'georgian_datetime' in final_df.columns:
-                final_df['georgian_datetime'] = pd.to_datetime(final_df['georgian_datetime'])
-            elif 'date' in final_df.columns:
-                final_df = final_df.rename(columns={'date': 'georgian_datetime'})
-                final_df['georgian_datetime'] = pd.to_datetime(final_df['georgian_datetime'])
-            elif 'Date' in final_df.columns:
-                final_df = final_df.rename(columns={'Date': 'georgian_datetime'})
-                final_df['georgian_datetime'] = pd.to_datetime(final_df['georgian_datetime'])
-            
-            # Drop rows where all data columns are NaN (empty time slots)
-            data_cols = [c for c in final_df.columns if c.startswith(('INST_', 'PELLET_', 'MDNC_'))]
-            if data_cols:
-                final_df = final_df.dropna(subset=data_cols, how='all')
-            
-            logger.info(f"🎉 All steps completed. Final shape: {final_df.shape}")
-            
-            return {
-                "success": True,
-                "merged_df": final_df,
-                "stats": {
-                    "rows": len(final_df),
-                    "columns": list(final_df.columns)
-                }
-            }
-        else:
+        if not output_merged.exists():
             raise FileNotFoundError("Merged file was not created. Check script outputs above.")
 
+        final_df = pd.read_csv(output_merged)
+        if "georgian_datetime" in final_df.columns:
+            final_df["georgian_datetime"] = pd.to_datetime(final_df["georgian_datetime"], errors="coerce")
+        logger.info("Session %s done. Rows: %d", session_id, len(final_df))
+
+        return {
+            "success": True,
+            "merged_df": final_df,
+            "stats": {"rows": len(final_df), "columns": list(final_df.columns)},
+        }
+
     except Exception as e:
-        logger.error(f"💥 Critical Error in pipeline: {e}")
+        logger.exception("Pipeline failed for session %s", session_id)
+        try:
+            shutil.rmtree(session_dir, ignore_errors=True)
+        except Exception:
+            pass
         raise e
-    
-    finally:
-        # پاکسازی فایل‌های موقت (اختیاری - برای دیباگ فعلا کامنت شده)
-        # shutil.rmtree(session_dir, ignore_errors=True)
-        pass
+
+
+def run_inference_for_md_c(model_md, model_c, df_window):
+    """Run Darts inference for MD and C. Returns dict with MD and C values or None on error."""
+    try:
+        from darts import TimeSeries
+    except ImportError:
+        logger.warning("darts not installed; inference skipped.")
+        return None
+
+    if df_window is None or (hasattr(df_window, "empty") and df_window.empty):
+        return None
+
+    df = df_window.copy()
+    if "georgian_datetime" in df.columns:
+        df["georgian_datetime"] = pd.to_datetime(df["georgian_datetime"], errors="coerce")
+        df = df.set_index("georgian_datetime")
+    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    if not numeric_cols:
+        return None
+    series = TimeSeries.from_dataframe(df[numeric_cols].fillna(0))
+
+    out = {}
+    if model_md is not None:
+        try:
+            pred = model_md.predict(n=1, series=series)
+            out["MD"] = float(pred.values().flatten()[0])
+        except Exception as e:
+            logger.debug("MD prediction failed: %s", e)
+            out["MD"] = None
+    else:
+        out["MD"] = None
+    if model_c is not None:
+        try:
+            pred = model_c.predict(n=1, series=series)
+            out["C"] = float(pred.values().flatten()[0])
+        except Exception as e:
+            logger.debug("C prediction failed: %s", e)
+            out["C"] = None
+    else:
+        out["C"] = None
+    return out
