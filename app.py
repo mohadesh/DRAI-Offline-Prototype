@@ -264,54 +264,50 @@ def simulation_reset():
 @app.route("/update-dashboard", methods=["GET"])
 def update_dashboard():
     """
-    High-frequency polling endpoint (HTMX).
-    Fetches the current simulation step and runs inference.
+    Endpoint for HTMX polling to get current simulation state.
+    Sends a HISTORY WINDOW to the inference engine.
     """
     if 'session_id' not in session:
-        return render_template("partials/dashboard.html", error="Session expired")
-        
+        return render_template("partials/dashboard.html", error="Session not found")
+
     session_id = session['session_id']
     runner = _simulation_runners.get(session_id)
-    
-    if not runner:
+
+    if runner is None:
         return render_template("partials/dashboard.html", error="No data loaded")
 
-    # 1. Get Simulation State
+    # Get current step data (for display)
     current_data = runner.get_current_step()
     progress = runner.get_progress()
-    
+
     predictions = None
-    
-    # 2. Run Inference (Only if simulation is active/has data)
     if current_data:
-        try:
-            # Pass a window of data for inference (Darts models need past_covariates history)
-            # Use last 96 rows (e.g. 8h at 5min) so lags are satisfied; fallback to single row
-            window_size = 96
-            start_idx = max(0, runner.current_index - window_size)
-            end_idx = runner.current_index + 1
-            df_window = runner.df.iloc[start_idx:end_idx]
-            df_for_inference = df_window.copy()
+        # --- FIX STARTS HERE ---
+        # Instead of sending just the current row, send the history window
+        # Darts models need lags (e.g. past 96 steps)
+        WINDOW_SIZE = 120 # Safe buffer (e.g. 10 hours of data)
+        
+        # Slice from runner.df using current index
+        start_idx = max(0, runner.current_index - WINDOW_SIZE)
+        end_idx = runner.current_index + 1
+        
+        # Prepare the dataframe window
+        df_window = runner.df.iloc[start_idx:end_idx].copy()
+        
+        # Load models
+        freq = session.get("model_frequency", DEFAULT_MODEL_FREQUENCY)
+        md_path, c_path = get_model_paths_for_frequency(freq)
+        
+        # Use Cached Loader
+        model_md = get_cached_model(md_path)
+        model_c = get_cached_model(c_path)
 
-            freq = session.get("model_frequency", DEFAULT_MODEL_FREQUENCY)
-            md_path, c_path = get_model_paths_for_frequency(freq)
-            model_md = get_cached_model(md_path)
-            model_c = get_cached_model(c_path)
+        if model_md or model_c:
+            # Pass the WINDOW to core_logic
+            predictions = core_logic.run_inference_for_md_c(model_md, model_c, df_window)
+        # --- FIX ENDS HERE ---
 
-            if model_md or model_c:
-                predictions = core_logic.run_inference_for_md_c(model_md, model_c, df_for_inference)
-                # Ensure we always return a dict with MD/C keys for the template
-                if predictions is None:
-                    predictions = {'MD': None, 'C': None}
-            else:
-                logger.debug("No models loaded for current frequency")
-        except Exception as e:
-            logger.error(f"Inference error: {e}")
-            import traceback
-            traceback.print_exc()
-            predictions = {'MD': None, 'C': None}
-
-    # 3. Advance Simulation (if running)
+    # Advance to next step
     if runner.is_running and not runner.is_paused:
         runner.get_next_step()
 
