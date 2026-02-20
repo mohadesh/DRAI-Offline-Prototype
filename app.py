@@ -1,8 +1,10 @@
+
 # app.py
 import os
 import uuid
 import logging
 import socket
+import pickle
 from pathlib import Path
 from flask import Flask, render_template, request, jsonify, session
 import pandas as pd
@@ -12,11 +14,12 @@ import core_logic
 import simulation
 import model_loader
 
+
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 500 * 1024 * 1024
 app.config["SECRET_KEY"] = "secret-key-offline"
 
-logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -60,10 +63,23 @@ def get_cached_model(path):
     path_str = str(path)
     if path_str in MODEL_CACHE:
         return MODEL_CACHE[path_str]
-    model = model_loader.load_model(path_str)
-    if model:
-        MODEL_CACHE[path_str] = model
-    return model
+    
+    try:
+        # 1. تلاش برای لود کردن مدل از طریق core_logic (اگر تابعی وجود داشته باشد)
+        model = core_logic.load_model(path_str) if hasattr(core_logic, 'load_model') else None
+        
+        # 2. در غیر این صورت، استفاده از کتابخانه استاندارد pickle برای فایل‌های .pkl
+        if model is None:
+            with open(path_str, 'rb') as f:
+                model = pickle.load(f)
+            
+        if model:
+            MODEL_CACHE[path_str] = model
+            logger.info(f"✅ Model cached successfully: {path.name}")
+        return model
+    except Exception as e:
+        logger.error(f"❌ Failed to load model {path.name}: {e}")
+        return None
 
 @app.route("/")
 def index():
@@ -92,11 +108,12 @@ def upload():
     session["model_frequency"] = model_freq
 
     try:
+        logger.info(f"Starting session: {sid} with frequency: {model_freq}")
         result = core_logic.process_data(
             process_files=p_files,
             pellet_files=pl_files,
             md_files=m_files,
-            resample_rate=model_freq  # Pass the frequency selec by the user
+            resample_rate=model_freq
         )
         
         runner = simulation.SimulationRunner(result['merged_df'])
@@ -111,7 +128,6 @@ def upload():
         logger.error(f"Upload failed: {e}", exc_info=True)
         return jsonify({"success": False, "error": str(e)}), 500
 
-# (سایر روت‌های سیمولیشن بدون تغییر)
 @app.route("/simulation/start", methods=["POST"])
 def sim_start():
     runner = _simulation_runners.get(session.get('session_id'))
@@ -136,13 +152,8 @@ def sim_reset():
     if runner: runner.reset(); return jsonify({"success": True})
     return jsonify({"success": False}), 400
 
-
 @app.route("/update-dashboard", methods=["GET"])
 def update_dashboard():
-    """
-    Endpoint for HTMX polling to get current simulation state.
-    Sends a HISTORY WINDOW to the inference engine.
-    """
     if 'session_id' not in session:
         return render_template("partials/dashboard.html", error="Session not found")
 
@@ -152,23 +163,18 @@ def update_dashboard():
     if runner is None:
         return render_template("partials/dashboard.html", error="No data loaded")
 
-    # Get current step data (for display)
     current_data = runner.get_current_step()
     progress = runner.get_progress()
-
     predictions = None
-    if current_data:
-        WINDOW_SIZE = 120 # Safe buffer (e.g. 10 hours of data at 5T)
 
-        # Slice from runner.df using current index
-        start_idx = max(0, runner.current_index - WINDOW_SIZE)
+    # حل مشکل دیکشنری: بررسی می‌کنیم که دیکشنری خالی نباشد
+    if current_data is not None and len(current_data) > 0:
+        WINDOW_SIZE = 120 
+        start_idx = max(0, runner.current_index - WINDOW_SIZE + 1)
         end_idx = runner.current_index + 1
 
-        # Prepare the dataframe window
         df_window = runner.df.iloc[start_idx:end_idx].copy()
         
-        # --- FIX APPLIED HERE ---
-        # Ensure the frequency is retrieved from the session and passed to the inference function.
         freq = session.get("model_frequency", DEFAULT_MODEL_FREQUENCY)
         md_path, c_path = get_model_paths_for_frequency(freq)
 
@@ -176,15 +182,13 @@ def update_dashboard():
         model_c = get_cached_model(c_path)
 
         if model_md or model_c:
-            # Pass the WINDOW and the FREQUENCY to core_logic
             predictions = core_logic.run_inference_for_md_c(
-                model_md=model_md, 
-                model_c=model_c, 
-                df_window=df_window, 
-                frequency=freq  # Pass the frequency here
+                model_md, 
+                model_c, 
+                df_window, 
+                frequency=freq
             )
 
-    # Advance to next step
     if runner.is_running and not runner.is_paused:
         runner.get_next_step()
 
@@ -195,6 +199,7 @@ def update_dashboard():
         progress=progress,
         error=None
     )
+
 def find_free_port(start_port=8000, max_tries=100):
     for port in range(start_port, start_port + max_tries):
         try:
@@ -207,8 +212,14 @@ def find_free_port(start_port=8000, max_tries=100):
 
 if __name__ == "__main__":
     try:
+        # خاموش کردن لاگ‌های اضافی Werkzeug برای خوانایی بهتر ترمینال
+        logging.getLogger('werkzeug').setLevel(logging.ERROR)
+        
         port = find_free_port()
-        print(f"Server starting on http://127.0.0.1:{port}")
+        print(f"\n========================================")
+        print(f" DRAI OFFLINE SERVER STARTED ")
+        print(f" Server URL: http://127.0.0.1:{port}")
+        print(f"========================================\n")
         app.run(debug=True, port=port, use_reloader=False)
     except IOError as e:
         print(f"Error: {e}")

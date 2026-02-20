@@ -23,6 +23,21 @@ MAX_LINES_LOGGED = 5000
 LINES_AFTER_CAP = 500  # After cap, log every N lines as progress
 LOG_STDERR_LINES = 200  # Max stderr lines to include in exception
 
+# =========================================================================
+# ویژگی‌های استخراج شده برای مدل (دقیقاً ۴۳ ستون)
+# =========================================================================
+PAST_COVARIATES_COLS = [
+    "PELLET_CCS", "PELLET_%FeO", "INST_WTH15", "INST_AITC10", "INST_AITC09",
+    "INST_AITA331", "INST_AITA321", "INST_AITA311", "INST_AITA18", "INST_FTA19",
+    "INST_FTA33", "INST_FTA22A36", "INST_FTA82", "INST_TTA341", "INST_TTA351",
+    "INST_TTA19", "INST_TTA521", "INST_TTA522", "INST_TTA523", "INST_TTA524",
+    "INST_TTA525", "INST_TTA526", "INST_TTA527", "INST_TTA528", "INST_TTA529",
+    "INST_TTA5210", "INST_PTA45", "INST_PTD11", "INST_PTD15", "INST_PDIA48",
+    "INST_PTA44", "INST_TTA251", "INST_TTA842", "INST_FTA201", "INST_TEMP_UPPER",
+    "INST_TEMP_MIDDLE", "INST_TEMP_LOWER", "INST_DELTA_T1", "INST_DELTA_T2",
+    "INST_DELTA_T_DIFF", "INST_FLOW_VAR_6H", "INST_BPR_SLOPE", "INST_BUSTLE_TEMP_RATE"
+]
+
 def run_script(script_name, args):
     """
     Run a Python script as a subprocess. Streams output with a line cap to avoid OOM.
@@ -214,46 +229,85 @@ def process_data(process_files, pellet_files, md_files, resample_rate="30T", mod
             pass
         raise e
 
-# --- بدون تغییر در این بخش ---
 def run_inference_for_md_c(model_md, model_c, df_window, frequency="30T"):
-    """Run Darts inference for MD and C. Returns dict with MD and C values or None on error."""
+    """
+    Run Darts inference for MD and C. Returns dict with MD and C values or None on error.
+    Requires at least 24 rows in df_window due to model lags=-24.
+    """
     try:
         from darts import TimeSeries
     except ImportError:
         logger.warning("darts not installed; inference skipped.")
-        return None
+        return {"MD": None, "C": None}
 
     if df_window is None or (hasattr(df_window, "empty") and df_window.empty):
-        return None
+        return {"MD": None, "C": None}
 
     df = df_window.copy()
+    
+    # --- تغییر جدید: بررسی طول داده‌های ورودی ---
+    REQUIRED_LAGS = 24
+    if len(df) < REQUIRED_LAGS:
+        # جلوگیری از خطای Darts: متوقف کردن استنتاج تا زمانی که پنجره داده به 24 سطر برسد
+        return {"MD": None, "C": None}
+
     if "georgian_datetime" in df.columns:
         df["georgian_datetime"] = pd.to_datetime(df["georgian_datetime"], errors="coerce")
         df = df.set_index("georgian_datetime")
-        
-    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-    if not numeric_cols:
-        return None
-        
-    series = TimeSeries.from_dataframe(df[numeric_cols].fillna(0), freq=frequency)
+    else:
+        logger.warning("Inference skipped: 'georgian_datetime' not in window.")
+        return {"MD": None, "C": None}
 
-    out = {}
+    TARGET_MD_COL = "MDNC_M_D"
+    TARGET_C_COL = "MDNC_C"
+    out = {"MD": None, "C": None}
+
+    # Pad any missing covariate columns with 0 to ensure exactly 43 columns exist
+    missing_cov_cols = set(PAST_COVARIATES_COLS) - set(df.columns)
+    if missing_cov_cols:
+        # logger.warning(f"Padding missing covariates with 0: {len(missing_cov_cols)} columns")
+        for col in missing_cov_cols:
+            df[col] = 0.0
+
+    # Extract exactly the required 43 covariates in the exact correct order
+    cov_df = df[PAST_COVARIATES_COLS].fillna(0)
+
+    # Convert to TimeSeries (using frequency parameter)
+    try:
+        covariate_series = TimeSeries.from_dataframe(cov_df, freq=frequency)
+    except Exception as e:
+        logger.warning(f"Could not enforce frequency '{frequency}': {e}. Falling back to default.")
+        covariate_series = TimeSeries.from_dataframe(cov_df)
+
+    # Helper function to generate target series
+    def get_target_series(target_name):
+        if target_name in df.columns:
+            ts_df = df[[target_name]].fillna(0)
+        else:
+            ts_df = pd.DataFrame({target_name: [0.0] * len(df)}, index=df.index)
+        try:
+            return TimeSeries.from_dataframe(ts_df, freq=frequency)
+        except Exception:
+            return TimeSeries.from_dataframe(ts_df)
+
+    # --- MD Inference ---
     if model_md is not None:
         try:
-            pred = model_md.predict(n=1, series=series)
+            target_series_md = get_target_series(TARGET_MD_COL)
+            pred = model_md.predict(n=1, series=target_series_md, past_covariates=covariate_series)
             out["MD"] = float(pred.values().flatten()[0])
         except Exception as e:
-            logger.debug("MD prediction failed: %s", e)
+            logger.error(f"MD prediction failed: {e}")
             out["MD"] = None
-    else:
-        out["MD"] = None
+
+    # --- C Inference ---
     if model_c is not None:
         try:
-            pred = model_c.predict(n=1, series=series)
+            target_series_c = get_target_series(TARGET_C_COL)
+            pred = model_c.predict(n=1, series=target_series_c, past_covariates=covariate_series)
             out["C"] = float(pred.values().flatten()[0])
         except Exception as e:
-            logger.debug("C prediction failed: %s", e)
+            logger.error(f"C prediction failed: {e}")
             out["C"] = None
-    else:
-        out["C"] = None
+
     return out
