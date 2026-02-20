@@ -1,23 +1,12 @@
+{# Rest of dashboard: controls, status, time, predictions. Includes tag_values so SVG text can be updated without reloading SVG. #}
+<script type="application/json" id="dashboard-tag-values">{{ tag_values | tojson }}</script>
 {% if error %}
 <div class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-800 shadow-sm">
   <p class="font-medium">{{ error }}</p>
 </div>
 {% elif current_data %}
 <div class="space-y-4">
-  <!-- 1. Graphical dashboard at top -->
-  <div id="dashboard-svg-wrapper" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm overflow-auto">
-    <object
-      id="dashboard-svg-object"
-      data="{{ url_for('serve_dashboard', filename='GolgoharDashboard.svg') }}"
-      type="image/svg+xml"
-      class="w-full h-auto min-w-0"
-      style="max-height: 85vh;"
-      aria-label="داشبورد تگ‌های فرآیندی"
-    ></object>
-    <script type="application/json" id="dashboard-tag-values">{{ tag_values | tojson }}</script>
-  </div>
-
-  <!-- 2. Simulation control buttons -->
+  <!-- Simulation control buttons -->
   <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
     <h3 class="mb-3 text-lg font-semibold text-slate-800">کنترل شبیه‌سازی</h3>
     <div class="flex flex-wrap gap-3">
@@ -26,7 +15,7 @@
         hx-post="/simulation/start"
         hx-swap="none"
         hx-trigger="click"
-        hx-on::htmx:after-request="if(event.detail.successful){ window.dispatchEvent(new CustomEvent('simulation-started')); htmx.trigger('#dashboard-inner', 'htmx:trigger'); }"
+        hx-on::htmx:after-request="if(event.detail.successful){ window.dispatchEvent(new CustomEvent('simulation-started')); htmx.trigger('#dashboard-poll-trigger', 'htmx:trigger'); }"
         :disabled="simRunning"
         class="rounded-lg bg-green-600 px-4 py-2 font-medium text-white transition hover:bg-green-700 disabled:opacity-50"
       >
@@ -37,7 +26,7 @@
         hx-post="/simulation/pause"
         hx-swap="none"
         hx-trigger="click"
-        hx-on::htmx:after-request="if(event.detail.successful){ window.dispatchEvent(new CustomEvent('simulation-paused')); htmx.trigger('#dashboard-inner', 'htmx:trigger'); }"
+        hx-on::htmx:after-request="if(event.detail.successful){ window.dispatchEvent(new CustomEvent('simulation-paused')); htmx.trigger('#dashboard-poll-trigger', 'htmx:trigger'); }"
         :disabled="!simRunning"
         class="rounded-lg bg-yellow-600 px-4 py-2 font-medium text-white transition hover:bg-yellow-700 disabled:opacity-50"
       >
@@ -48,7 +37,7 @@
         hx-post="/simulation/resume"
         hx-swap="none"
         hx-trigger="click"
-        hx-on::htmx:after-request="if(event.detail.successful){ window.dispatchEvent(new CustomEvent('simulation-resumed')); htmx.trigger('#dashboard-inner', 'htmx:trigger'); }"
+        hx-on::htmx:after-request="if(event.detail.successful){ window.dispatchEvent(new CustomEvent('simulation-resumed')); htmx.trigger('#dashboard-poll-trigger', 'htmx:trigger'); }"
         :disabled="!simPaused"
         class="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
       >
@@ -59,7 +48,7 @@
         hx-post="/simulation/reset"
         hx-swap="none"
         hx-trigger="click"
-        hx-on::htmx:after-request="if(event.detail.successful){ window.dispatchEvent(new CustomEvent('simulation-reset')); htmx.trigger('#dashboard-inner', 'htmx:trigger'); }"
+        hx-on::htmx:after-request="if(event.detail.successful){ window.dispatchEvent(new CustomEvent('simulation-reset')); htmx.trigger('#dashboard-poll-trigger', 'htmx:trigger'); }"
         class="rounded-lg bg-red-600 px-4 py-2 font-medium text-white transition hover:bg-red-700"
       >
         بازنشانی
@@ -67,7 +56,7 @@
     </div>
   </div>
 
-  <!-- 3. Status and Progress Bar -->
+  <!-- Status and Progress Bar -->
   <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
     <div class="mb-2 flex items-center justify-between">
       <h3 class="text-lg font-semibold text-slate-800">وضعیت سیستم</h3>
@@ -91,7 +80,7 @@
     {% endif %}
   </div>
 
-  <!-- 4. Current Timestamp: Jalali and Georgian side by side -->
+  <!-- Current Timestamp: Jalali and Georgian side by side -->
   <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
     <h3 class="mb-2 text-lg font-semibold text-slate-800">زمان فعلی</h3>
     <div class="flex flex-wrap items-baseline gap-x-6 gap-y-1">
@@ -106,7 +95,7 @@
     </div>
   </div>
 
-  <!-- 5. Predictions -->
+  <!-- Predictions -->
   <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
     <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <h3 class="mb-2 text-lg font-semibold text-slate-800">پیش‌بینی MD</h3>
@@ -133,4 +122,3 @@
   <p class="text-slate-600">در حال انتظار برای شروع شبیه‌سازی...</p>
 </div>
 {% endif %}
-
