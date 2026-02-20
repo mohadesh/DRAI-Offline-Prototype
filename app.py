@@ -4,11 +4,21 @@ import uuid
 import logging
 import socket
 import pickle
+import random
 import warnings
 from pathlib import Path
 from flask import Flask, render_template, request, jsonify, session, send_from_directory
 import pandas as pd
 import jdatetime
+
+# Load .env from project root if present (simple key=value, no dependencies needed)
+_env_file = Path(__file__).resolve().parent / ".env"
+if _env_file.exists():
+    for _line in _env_file.read_text(encoding="utf-8").splitlines():
+        _line = _line.strip()
+        if _line and not _line.startswith("#") and "=" in _line:
+            _k, _, _v = _line.partition("=")
+            os.environ.setdefault(_k.strip(), _v.strip())
 
 # --- تمیز کردن لاگ‌های ترمینال ---
 # نادیده گرفتن هشدارهای مربوط به نام فیچرهای LightGBM
@@ -52,6 +62,46 @@ def get_svg_content():
             logger.error(f"Failed to read SVG file: {e}")
             _svg_content_cache = ""
     return _svg_content_cache
+
+# ── Simulated-prediction mode ─────────────────────────────────────────────────
+# Set env var  DRAI_SIMULATE_PREDICTIONS=1  (or "true"/"yes") to bypass the
+# real ML models and instead derive predicted MD/C from the actual MDNC_M_D /
+# MDNC_C tag values with ±5–15 % random noise (useful for demos / dev).
+_env_sim = os.environ.get("DRAI_SIMULATE_PREDICTIONS", "").strip().lower()
+SIMULATE_PREDICTIONS: bool = _env_sim in ("1", "true", "yes", "on")
+
+_MD_MAX = 97.0   # clamp ceiling for Metallization Degree (%)
+_C_MAX  = 10.0   # clamp ceiling for Carbon content (%)
+_C_MIN  = 0.0
+
+def _simulated_predictions(current_data):
+    """Return {"MD": float|None, "C": float|None} with ±5–15 % noise on real tag values."""
+    def _get_tag(data, tag_name):
+        for key, v in data.items():
+            key_str = str(key).strip()
+            if key_str == tag_name or key_str.endswith(tag_name):
+                try:
+                    f = float(v)
+                    return f if not (f != f) else None  # NaN guard
+                except (TypeError, ValueError):
+                    pass
+        return None
+
+    def _noisy(value, lo, hi, max_val):
+        if value is None:
+            return None
+        sign = random.choice((-1, 1))
+        pct  = random.uniform(0.05, 0.15)          # 5–15 %
+        result = value * (1 + sign * pct)
+        return round(min(max(result, lo), max_val), 2)
+
+    md_raw = _get_tag(current_data, "MDNC_M_D")
+    c_raw  = _get_tag(current_data, "MDNC_C")
+
+    return {
+        "MD": _noisy(md_raw, 0.0, _MD_MAX, _MD_MAX),
+        "C":  _noisy(c_raw,  _C_MIN, _C_MAX, _C_MAX),
+    }
 
 # تنظیمات فرکانس
 FREQUENCY_OPTIONS = ("1h", "15T", "30T")
@@ -264,25 +314,30 @@ def update_dashboard():
             except Exception as e:
                 logger.error(f"Jalali conversion error: {e}")
 
-        # 2. DYNAMIC FREQUENCY & INFERENCE WINDOW
-        WINDOW_SIZE = 120 # Safe buffer (e.g. 10 hours of data)
-        start_idx = max(0, runner.current_index - WINDOW_SIZE)
-        end_idx = runner.current_index + 1
-        df_window = runner.df.iloc[start_idx:end_idx].copy()
+        # 2. PREDICTION — real model or simulated noise
+        if SIMULATE_PREDICTIONS:
+            predictions = _simulated_predictions(current_data)
+            logger.debug("SIMULATE_PREDICTIONS active: MD=%s  C=%s",
+                         predictions.get("MD"), predictions.get("C"))
+        else:
+            WINDOW_SIZE = 120
+            start_idx = max(0, runner.current_index - WINDOW_SIZE)
+            end_idx = runner.current_index + 1
+            df_window = runner.df.iloc[start_idx:end_idx].copy()
 
-        freq = session.get("model_frequency", DEFAULT_MODEL_FREQUENCY)
-        md_path, c_path = get_model_paths_for_frequency(freq)
+            freq = session.get("model_frequency", DEFAULT_MODEL_FREQUENCY)
+            md_path, c_path = get_model_paths_for_frequency(freq)
 
-        model_md = get_cached_model(md_path)
-        model_c = get_cached_model(c_path)
+            model_md = get_cached_model(md_path)
+            model_c = get_cached_model(c_path)
 
-        if model_md or model_c:
-            predictions = core_logic.run_inference_for_md_c(
-                model_md,
-                model_c,
-                df_window,
-                frequency=freq
-            )
+            if model_md or model_c:
+                predictions = core_logic.run_inference_for_md_c(
+                    model_md,
+                    model_c,
+                    df_window,
+                    frequency=freq
+                )
 
     # Advance to next step
     if runner.is_running and not runner.is_paused:
