@@ -184,7 +184,10 @@ def _build_dashboard_tag_values(current_data):
                         break
                     except (TypeError, ValueError):
                         pass
-        out[tag] = "%.2f" % value if value is not None else "—"
+        if value is not None:
+            out[tag] = str(int(value)) if value == int(value) else "%.2f" % value
+        else:
+            out[tag] = "—"
     return out
 
 @app.route("/dashboard/<path:filename>")
