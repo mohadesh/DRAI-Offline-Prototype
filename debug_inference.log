@@ -12110,3 +12110,329 @@ MDNC_Fine         704
 2026-02-20 23:05:52,731 - DEBUG - DEBUG_03 | MD after clamping: 0.82
 2026-02-20 23:05:52,765 - DEBUG - DEBUG_03 | C raw prediction value: 0.660897
 2026-02-20 23:05:52,766 - DEBUG - DEBUG_03 | C after clamping: 0.66
+2026-02-20 23:09:23,272 - INFO - Starting session: 16e1c002-d8fc-460c-ab76-ec4f0ba56004 with frequency: 1h
+2026-02-20 23:09:23,281 - INFO - Running ProcessTags.py (args: ['--input', '/Users/arashbanijamali/Projects/DRAI-Offline-Prototype/uploads/16e1c002-d8fc-460c-ab76-ec4f0ba56004/process_manual_filter.xlsx', '--output', '/Users/arashbanijamali/Projects/DRAI-Offline-Prototype/uploads/16e1c002-d8fc-460c-ab76-ec4f0ba56004/Process_Cleaned.csv', '--resample-rate', '1h'])
+2026-02-20 23:09:29,667 - INFO - ProcessTags.py completed successfully.
+2026-02-20 23:09:29,667 - INFO - Running Pellet.py (args: ['--input', '/Users/arashbanijamali/Projects/DRAI-Offline-Prototype/uploads/16e1c002-d8fc-460c-ab76-ec4f0ba56004/آنالیز گندله ورودی گوهر 01.xlsx', '--output', '/Users/arashbanijamali/Projects/DRAI-Offline-Prototype/uploads/16e1c002-d8fc-460c-ab76-ec4f0ba56004/Pellet_Cleaned.csv'])
+2026-02-20 23:09:29,984 - INFO - Pellet.py completed successfully.
+2026-02-20 23:09:29,984 - INFO - Running MDnC.py (args: ['--input', '/Users/arashbanijamali/Projects/DRAI-Offline-Prototype/uploads/16e1c002-d8fc-460c-ab76-ec4f0ba56004/MD_1_1404.xlsx', '--output', '/Users/arashbanijamali/Projects/DRAI-Offline-Prototype/uploads/16e1c002-d8fc-460c-ab76-ec4f0ba56004/MD_Cleaned.csv'])
+2026-02-20 23:09:30,282 - INFO - MDnC.py completed successfully.
+2026-02-20 23:09:30,283 - INFO - Running merging.py (args: ['--process', '/Users/arashbanijamali/Projects/DRAI-Offline-Prototype/uploads/16e1c002-d8fc-460c-ab76-ec4f0ba56004/Process_Cleaned.csv', '--pellet', '/Users/arashbanijamali/Projects/DRAI-Offline-Prototype/uploads/16e1c002-d8fc-460c-ab76-ec4f0ba56004/Pellet_Cleaned.csv', '--md', '/Users/arashbanijamali/Projects/DRAI-Offline-Prototype/uploads/16e1c002-d8fc-460c-ab76-ec4f0ba56004/MD_Cleaned.csv'])
+2026-02-20 23:09:30,603 - INFO - merging.py completed successfully.
+2026-02-20 23:09:30,613 - INFO - Session 16e1c002-d8fc-460c-ab76-ec4f0ba56004 done. Rows: 744
+2026-02-20 23:09:30,613 - DEBUG - DEBUG_01 | final_df shape: (744, 176) | columns: ['georgian_datetime', 'INST_AITA18', 'INST_AITA311', 'INST_AITA321', 'INST_AITA331', 'INST_AITA35', 'INST_AITA36', 'INST_AITA37', 'INST_AITC09', 'INST_AITC10', 'INST_AITD18', 'INST_AITD19', 'INST_C', 'INST_CCSP', 'INST_DAY', 'INST_FEMETAL', 'INST_FEOP', 'INST_FETOTAL', 'INST_FETOTOALP', 'INST_FLOORTEMP', 'INST_FTA19', 'INST_FTA201', 'INST_FTA22A36', 'INST_FTA33', 'INST_FTA71', 'INST_FTA72', 'INST_FTA82', 'INST_FTB061', 'INST_FTB062', 'INST_FTB07', 'INST_FTB11', 'INST_FTB14', 'INST_FTD24', 'INST_FTE09', 'INST_FTE13', 'INST_FTE14', 'INST_FTE16', 'INST_FTE17', 'INST_FTE19', 'INST_FTE29', 'INST_FTE49', 'INST_FTE60', 'INST_FTG28', 'INST_H2CO', 'INST_ID', 'INST_MD', 'INST_MONTH', 'INST_PDIA01', 'INST_PDIA48', 'INST_PDIA79', 'INST_PDTA021', 'INST_PDTA022', 'INST_PDTA023', 'INST_PDTA101', 'INST_PDTA102', 'INST_PDTA281', 'INST_PDTD43', 'INST_PDTD44', 'INST_PDTD543', 'INST_PINCB', 'INST_PTA011', 'INST_PTA012', 'INST_PTA031B', 'INST_PTA032B', 'INST_PTA033B', 'INST_PTA111', 'INST_PTA112', 'INST_PTA19', 'INST_PTA44', 'INST_PTA45', 'INST_PTA471B', 'INST_PTA71', 'INST_PTA791', 'INST_PTB081', 'INST_PTC07', 'INST_PTD11', 'INST_PTD15', 'INST_PTG28', 'INST_QINCB', 'INST_RGQ', 'INST_ROOFTEMP', 'INST_S', 'INST_TIT2D16', 'INST_TT2D061', 'INST_TTA041', 'INST_TTA042', 'INST_TTA043', 'INST_TTA121', 'INST_TTA122', 'INST_TTA19', 'INST_TTA251', 'INST_TTA341', 'INST_TTA351', 'INST_TTA48', 'INST_TTA49', 'INST_TTA521', 'INST_TTA5210', 'INST_TTA522', 'INST_TTA523', 'INST_TTA524', 'INST_TTA525', 'INST_TTA526', 'INST_TTA527', 'INST_TTA528', 'INST_TTA529', 'INST_TTA541', 'INST_TTA61', 'INST_TTA71', 'INST_TTA731', 'INST_TTA7310', 'INST_TTA7311', 'INST_TTA732', 'INST_TTA733', 'INST_TTA734', 'INST_TTA735', 'INST_TTA736', 'INST_TTA737', 'INST_TTA738', 'INST_TTA739', 'INST_TTA74', 'INST_TTA801', 'INST_TTA802', 'INST_TTA83', 'INST_TTA841', 'INST_TTA842', 'INST_TTA844', 'INST_TTB19', 'INST_TTB22', 'INST_TTC011', 'INST_TTC021', 'INST_TTC022', 'INST_TTC031A', 'INST_TTC032A', 'INST_TTC171', 'INST_TTC1710', 'INST_TTC172', 'INST_TTC173', 'INST_TTC175', 'INST_TTC176', 'INST_TTC179', 'INST_TTD16', 'INST_TTD80', 'INST_TTE01', 'INST_TTE02', 'INST_TTE45', 'INST_TTE67', 'INST_TTH02', 'INST_TTH061', 'INST_TTH062', 'INST_TTH063', 'INST_TTH064', 'INST_TTH065', 'INST_TTH066', 'INST_TTH067', 'INST_TTH068', 'INST_TTH17', 'INST_TTM66', 'INST_VT2D062', 'INST_VTA051', 'INST_VTA052', 'INST_VTA053', 'INST_VTA131', 'INST_VTA132', 'INST_VTA171', 'INST_WTH15', 'INST_YEAR', 'PELLET_Year', 'PELLET_Month', 'PELLET_Day', 'PELLET_%FeO', 'PELLET_CCS', 'PELLET_%S', 'MDNC_M_D', 'MDNC_C', 'MDNC_S', 'MDNC_Fine']
+2026-02-20 23:09:30,614 - DEBUG - DEBUG_01 | No missing values in final_df.
+2026-02-20 23:09:30,645 - DEBUG - DEBUG_01 | Exported first 500 rows -> /Users/arashbanijamali/Projects/DRAI-Offline-Prototype/uploads/DEBUG_01_merged_sample.csv
+2026-02-20 23:11:50,536 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:11:50,537 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=249.0000  mean=247.3333
+2026-02-20 23:11:50,537 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1059.0000  max=1064.0000  mean=1062.7765
+2026-02-20 23:11:50,537 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=183.0000  max=197.0000  mean=190.6447
+2026-02-20 23:11:50,539 - DEBUG - DEBUG_02 | Exported cov_df ((24, 43)) -> /Users/arashbanijamali/Projects/DRAI-Offline-Prototype/uploads/DEBUG_02_model_input_features.csv
+2026-02-20 23:11:50,567 - DEBUG - DEBUG_03 | MD raw prediction value: 0.873263
+2026-02-20 23:11:50,567 - DEBUG - DEBUG_03 | MD after clamping: 0.87
+2026-02-20 23:11:50,582 - DEBUG - DEBUG_03 | C raw prediction value: 0.674000
+2026-02-20 23:11:50,582 - DEBUG - DEBUG_03 | C after clamping: 0.67
+2026-02-20 23:11:52,534 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:11:52,534 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=249.0000  mean=247.0800
+2026-02-20 23:11:52,534 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1059.0000  max=1064.0000  mean=1062.8255
+2026-02-20 23:11:52,534 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=183.0000  max=197.0000  mean=190.6989
+2026-02-20 23:11:52,626 - DEBUG - DEBUG_03 | MD raw prediction value: 0.860485
+2026-02-20 23:11:52,626 - DEBUG - DEBUG_03 | MD after clamping: 0.86
+2026-02-20 23:11:52,635 - DEBUG - DEBUG_03 | C raw prediction value: 0.686033
+2026-02-20 23:11:52,635 - DEBUG - DEBUG_03 | C after clamping: 0.69
+2026-02-20 23:11:54,535 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:11:54,535 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=249.0000  mean=246.8462
+2026-02-20 23:11:54,536 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1059.0000  max=1064.0000  mean=1062.8706
+2026-02-20 23:11:54,537 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=183.0000  max=197.0000  mean=190.7490
+2026-02-20 23:11:54,556 - DEBUG - DEBUG_03 | MD raw prediction value: 0.873684
+2026-02-20 23:11:54,556 - DEBUG - DEBUG_03 | MD after clamping: 0.87
+2026-02-20 23:11:54,569 - DEBUG - DEBUG_03 | C raw prediction value: 0.657876
+2026-02-20 23:11:54,569 - DEBUG - DEBUG_03 | C after clamping: 0.66
+2026-02-20 23:11:56,540 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:11:56,540 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=249.0000  mean=246.6296
+2026-02-20 23:11:56,540 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1059.0000  max=1064.0000  mean=1062.9125
+2026-02-20 23:11:56,541 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=183.0000  max=197.0000  mean=190.7953
+2026-02-20 23:11:56,559 - DEBUG - DEBUG_03 | MD raw prediction value: 0.874426
+2026-02-20 23:11:56,560 - DEBUG - DEBUG_03 | MD after clamping: 0.87
+2026-02-20 23:11:56,572 - DEBUG - DEBUG_03 | C raw prediction value: 0.665106
+2026-02-20 23:11:56,573 - DEBUG - DEBUG_03 | C after clamping: 0.67
+2026-02-20 23:11:58,542 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:11:58,542 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=249.0000  mean=246.5000
+2026-02-20 23:11:58,543 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1050.7500  max=1064.0000  mean=1062.4781
+2026-02-20 23:11:58,543 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=183.0000  max=197.0000  mean=190.9633
+2026-02-20 23:11:58,561 - DEBUG - DEBUG_03 | MD raw prediction value: 0.899070
+2026-02-20 23:11:58,561 - DEBUG - DEBUG_03 | MD after clamping: 0.9
+2026-02-20 23:11:58,573 - DEBUG - DEBUG_03 | C raw prediction value: 0.661407
+2026-02-20 23:11:58,574 - DEBUG - DEBUG_03 | C after clamping: 0.66
+2026-02-20 23:12:00,541 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:12:00,541 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=249.0000  mean=246.3793
+2026-02-20 23:12:00,541 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1050.7500  max=1064.0000  mean=1062.1826
+2026-02-20 23:12:00,541 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=183.0000  max=197.0000  mean=191.1558
+2026-02-20 23:12:00,553 - DEBUG - DEBUG_03 | MD raw prediction value: 0.902530
+2026-02-20 23:12:00,554 - DEBUG - DEBUG_03 | MD after clamping: 0.9
+2026-02-20 23:12:00,566 - DEBUG - DEBUG_03 | C raw prediction value: 0.654755
+2026-02-20 23:12:00,566 - DEBUG - DEBUG_03 | C after clamping: 0.65
+2026-02-20 23:12:02,548 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:12:02,548 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=249.0000  mean=246.2667
+2026-02-20 23:12:02,548 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1050.7500  max=1064.0000  mean=1062.0098
+2026-02-20 23:12:02,549 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=183.0000  max=197.0000  mean=191.0506
+2026-02-20 23:12:02,566 - DEBUG - DEBUG_03 | MD raw prediction value: 0.913555
+2026-02-20 23:12:02,566 - DEBUG - DEBUG_03 | MD after clamping: 0.91
+2026-02-20 23:12:02,579 - DEBUG - DEBUG_03 | C raw prediction value: 0.655648
+2026-02-20 23:12:02,579 - DEBUG - DEBUG_03 | C after clamping: 0.66
+2026-02-20 23:12:04,550 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:12:04,551 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=249.0000  mean=246.1613
+2026-02-20 23:12:04,551 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1050.7500  max=1064.0000  mean=1061.8482
+2026-02-20 23:12:04,551 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=183.0000  max=197.0000  mean=190.9522
+2026-02-20 23:12:04,569 - DEBUG - DEBUG_03 | MD raw prediction value: 0.892668
+2026-02-20 23:12:04,570 - DEBUG - DEBUG_03 | MD after clamping: 0.89
+2026-02-20 23:12:04,583 - DEBUG - DEBUG_03 | C raw prediction value: 0.654717
+2026-02-20 23:12:04,583 - DEBUG - DEBUG_03 | C after clamping: 0.65
+2026-02-20 23:12:06,553 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:12:06,553 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=249.0000  mean=246.0625
+2026-02-20 23:12:06,553 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1050.7500  max=1064.0000  mean=1061.6967
+2026-02-20 23:12:06,553 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=181.0000  max=197.0000  mean=190.6412
+2026-02-20 23:12:06,571 - DEBUG - DEBUG_03 | MD raw prediction value: 0.853719
+2026-02-20 23:12:06,571 - DEBUG - DEBUG_03 | MD after clamping: 0.85
+2026-02-20 23:12:06,583 - DEBUG - DEBUG_03 | C raw prediction value: 0.637685
+2026-02-20 23:12:06,583 - DEBUG - DEBUG_03 | C after clamping: 0.64
+2026-02-20 23:12:08,555 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:12:08,556 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=249.0000  mean=245.9697
+2026-02-20 23:12:08,556 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1050.7500  max=1064.0000  mean=1061.5241
+2026-02-20 23:12:08,556 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=181.0000  max=205.0000  mean=191.0763
+2026-02-20 23:12:08,574 - DEBUG - DEBUG_03 | MD raw prediction value: 0.679808
+2026-02-20 23:12:08,574 - DEBUG - DEBUG_03 | MD after clamping: 0.68
+2026-02-20 23:12:08,587 - DEBUG - DEBUG_03 | C raw prediction value: 0.636241
+2026-02-20 23:12:08,587 - DEBUG - DEBUG_03 | C after clamping: 0.64
+2026-02-20 23:12:10,558 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:12:10,558 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=253.0000  mean=246.1765
+2026-02-20 23:12:10,559 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1050.7500  max=1064.0000  mean=1061.3371
+2026-02-20 23:12:10,559 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=179.6667  max=205.0000  mean=190.7407
+2026-02-20 23:12:10,577 - DEBUG - DEBUG_03 | MD raw prediction value: 0.864587
+2026-02-20 23:12:10,577 - DEBUG - DEBUG_03 | MD after clamping: 0.86
+2026-02-20 23:12:10,590 - DEBUG - DEBUG_03 | C raw prediction value: 0.629580
+2026-02-20 23:12:10,590 - DEBUG - DEBUG_03 | C after clamping: 0.63
+2026-02-20 23:12:12,561 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:12:12,561 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=253.0000  mean=246.3714
+2026-02-20 23:12:12,561 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1050.7500  max=1064.0000  mean=1061.0626
+2026-02-20 23:12:12,561 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=57.8182  max=205.0000  mean=186.9429
+2026-02-20 23:12:12,579 - DEBUG - DEBUG_03 | MD raw prediction value: 0.712160
+2026-02-20 23:12:12,579 - DEBUG - DEBUG_03 | MD after clamping: 0.71
+2026-02-20 23:12:12,592 - DEBUG - DEBUG_03 | C raw prediction value: 0.626339
+2026-02-20 23:12:12,592 - DEBUG - DEBUG_03 | C after clamping: 0.63
+2026-02-20 23:12:14,563 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:12:14,563 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=253.0000  mean=246.5556
+2026-02-20 23:12:14,563 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1050.4545  max=1064.0000  mean=1060.7679
+2026-02-20 23:12:14,563 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=57.8182  max=205.0000  mean=185.8915
+2026-02-20 23:12:14,582 - DEBUG - DEBUG_03 | MD raw prediction value: 0.707831
+2026-02-20 23:12:14,582 - DEBUG - DEBUG_03 | MD after clamping: 0.71
+2026-02-20 23:12:14,594 - DEBUG - DEBUG_03 | C raw prediction value: 0.619105
+2026-02-20 23:12:14,594 - DEBUG - DEBUG_03 | C after clamping: 0.62
+2026-02-20 23:12:16,564 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:12:16,565 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=253.0000  mean=246.7297
+2026-02-20 23:12:16,565 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1046.3636  max=1064.0000  mean=1060.3786
+2026-02-20 23:12:16,565 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=57.8182  max=205.0000  mean=186.0124
+2026-02-20 23:12:16,582 - DEBUG - DEBUG_03 | MD raw prediction value: 0.867424
+2026-02-20 23:12:16,582 - DEBUG - DEBUG_03 | MD after clamping: 0.87
+2026-02-20 23:12:16,594 - DEBUG - DEBUG_03 | C raw prediction value: 0.624960
+2026-02-20 23:12:16,594 - DEBUG - DEBUG_03 | C after clamping: 0.62
+2026-02-20 23:12:18,565 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:12:18,566 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=253.0000  mean=246.8947
+2026-02-20 23:12:18,566 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1045.0909  max=1064.0000  mean=1059.9763
+2026-02-20 23:12:18,566 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=57.8182  max=205.0000  mean=186.2537
+2026-02-20 23:12:18,585 - DEBUG - DEBUG_03 | MD raw prediction value: 0.536441
+2026-02-20 23:12:18,585 - DEBUG - DEBUG_03 | MD after clamping: 0.54
+2026-02-20 23:12:18,599 - DEBUG - DEBUG_03 | C raw prediction value: 0.621774
+2026-02-20 23:12:18,599 - DEBUG - DEBUG_03 | C after clamping: 0.62
+2026-02-20 23:12:20,563 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:12:20,564 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=253.0000  mean=247.0513
+2026-02-20 23:12:20,564 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1045.0909  max=1064.0000  mean=1059.6289
+2026-02-20 23:12:20,564 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=57.8182  max=205.0000  mean=186.4633
+2026-02-20 23:12:20,575 - DEBUG - DEBUG_03 | MD raw prediction value: 0.790635
+2026-02-20 23:12:20,576 - DEBUG - DEBUG_03 | MD after clamping: 0.79
+2026-02-20 23:12:20,588 - DEBUG - DEBUG_03 | C raw prediction value: 0.645792
+2026-02-20 23:12:20,589 - DEBUG - DEBUG_03 | C after clamping: 0.65
+2026-02-20 23:12:22,573 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:12:22,574 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=253.0000  mean=247.2000
+2026-02-20 23:12:22,574 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1045.0909  max=1064.0000  mean=1059.2989
+2026-02-20 23:12:22,574 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=57.8182  max=205.0000  mean=186.6624
+2026-02-20 23:12:22,592 - DEBUG - DEBUG_03 | MD raw prediction value: 0.849312
+2026-02-20 23:12:22,593 - DEBUG - DEBUG_03 | MD after clamping: 0.85
+2026-02-20 23:12:22,606 - DEBUG - DEBUG_03 | C raw prediction value: 0.618035
+2026-02-20 23:12:22,606 - DEBUG - DEBUG_03 | C after clamping: 0.62
+2026-02-20 23:12:24,574 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:12:24,574 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=253.0000  mean=247.3415
+2026-02-20 23:12:24,574 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1045.0909  max=1064.0000  mean=1058.9850
+2026-02-20 23:12:24,574 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=57.8182  max=205.0000  mean=186.8518
+2026-02-20 23:12:24,592 - DEBUG - DEBUG_03 | MD raw prediction value: 0.831391
+2026-02-20 23:12:24,592 - DEBUG - DEBUG_03 | MD after clamping: 0.83
+2026-02-20 23:12:24,604 - DEBUG - DEBUG_03 | C raw prediction value: 0.638726
+2026-02-20 23:12:24,604 - DEBUG - DEBUG_03 | C after clamping: 0.64
+2026-02-20 23:12:26,574 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:12:26,574 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=253.0000  mean=247.4762
+2026-02-20 23:12:26,574 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1045.0909  max=1064.0000  mean=1058.6860
+2026-02-20 23:12:26,575 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=57.8182  max=205.0000  mean=187.0322
+2026-02-20 23:12:26,591 - DEBUG - DEBUG_03 | MD raw prediction value: 0.679491
+2026-02-20 23:12:26,592 - DEBUG - DEBUG_03 | MD after clamping: 0.68
+2026-02-20 23:12:26,605 - DEBUG - DEBUG_03 | C raw prediction value: 0.658235
+2026-02-20 23:12:26,605 - DEBUG - DEBUG_03 | C after clamping: 0.66
+2026-02-20 23:12:28,578 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:12:28,579 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=253.0000  mean=247.6047
+2026-02-20 23:12:28,579 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1045.0909  max=1064.0000  mean=1058.4010
+2026-02-20 23:12:28,579 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=57.8182  max=205.0000  mean=187.2042
+2026-02-20 23:12:28,597 - DEBUG - DEBUG_03 | MD raw prediction value: 0.747302
+2026-02-20 23:12:28,598 - DEBUG - DEBUG_03 | MD after clamping: 0.75
+2026-02-20 23:12:28,611 - DEBUG - DEBUG_03 | C raw prediction value: 0.656608
+2026-02-20 23:12:28,611 - DEBUG - DEBUG_03 | C after clamping: 0.66
+2026-02-20 23:12:30,576 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:12:30,576 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=256.0000  mean=247.7955
+2026-02-20 23:12:30,576 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1045.0909  max=1064.0000  mean=1058.1289
+2026-02-20 23:12:30,576 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=57.8182  max=205.0000  mean=187.3684
+2026-02-20 23:12:30,593 - DEBUG - DEBUG_03 | MD raw prediction value: 0.880151
+2026-02-20 23:12:30,594 - DEBUG - DEBUG_03 | MD after clamping: 0.88
+2026-02-20 23:12:30,607 - DEBUG - DEBUG_03 | C raw prediction value: 0.638631
+2026-02-20 23:12:30,607 - DEBUG - DEBUG_03 | C after clamping: 0.64
+2026-02-20 23:12:32,579 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:12:32,580 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=256.0000  mean=247.9778
+2026-02-20 23:12:32,580 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1045.0909  max=1064.0000  mean=1057.8689
+2026-02-20 23:12:32,580 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=57.8182  max=205.0000  mean=187.5253
+2026-02-20 23:12:32,599 - DEBUG - DEBUG_03 | MD raw prediction value: 0.836710
+2026-02-20 23:12:32,599 - DEBUG - DEBUG_03 | MD after clamping: 0.84
+2026-02-20 23:12:32,621 - DEBUG - DEBUG_03 | C raw prediction value: 0.714952
+2026-02-20 23:12:32,621 - DEBUG - DEBUG_03 | C after clamping: 0.71
+2026-02-20 23:12:34,578 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:12:34,578 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=256.0000  mean=248.1522
+2026-02-20 23:12:34,578 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1045.0909  max=1064.0000  mean=1057.6202
+2026-02-20 23:12:34,578 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=57.8182  max=205.0000  mean=187.6754
+2026-02-20 23:12:34,595 - DEBUG - DEBUG_03 | MD raw prediction value: 0.868978
+2026-02-20 23:12:34,595 - DEBUG - DEBUG_03 | MD after clamping: 0.87
+2026-02-20 23:12:34,608 - DEBUG - DEBUG_03 | C raw prediction value: 0.737851
+2026-02-20 23:12:34,608 - DEBUG - DEBUG_03 | C after clamping: 0.74
+2026-02-20 23:12:36,583 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:12:36,584 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=256.0000  mean=248.3191
+2026-02-20 23:12:36,584 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1045.0909  max=1064.0000  mean=1057.3820
+2026-02-20 23:12:36,584 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=57.8182  max=205.0000  mean=187.8191
+2026-02-20 23:12:36,600 - DEBUG - DEBUG_03 | MD raw prediction value: 0.875234
+2026-02-20 23:12:36,600 - DEBUG - DEBUG_03 | MD after clamping: 0.88
+2026-02-20 23:12:36,613 - DEBUG - DEBUG_03 | C raw prediction value: 0.724421
+2026-02-20 23:12:36,613 - DEBUG - DEBUG_03 | C after clamping: 0.72
+2026-02-20 23:12:38,583 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:12:38,583 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=256.0000  mean=248.4792
+2026-02-20 23:12:38,583 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1045.0909  max=1064.0000  mean=1057.4574
+2026-02-20 23:12:38,583 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=57.8182  max=205.0000  mean=188.0103
+2026-02-20 23:12:38,601 - DEBUG - DEBUG_03 | MD raw prediction value: 0.872086
+2026-02-20 23:12:38,601 - DEBUG - DEBUG_03 | MD after clamping: 0.87
+2026-02-20 23:12:38,615 - DEBUG - DEBUG_03 | C raw prediction value: 0.709190
+2026-02-20 23:12:38,615 - DEBUG - DEBUG_03 | C after clamping: 0.71
+2026-02-20 23:12:40,583 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:12:40,583 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=256.0000  mean=248.6327
+2026-02-20 23:12:40,583 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1045.0909  max=1064.0000  mean=1057.5093
+2026-02-20 23:12:40,583 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=57.8182  max=205.0000  mean=188.2958
+2026-02-20 23:12:40,602 - DEBUG - DEBUG_03 | MD raw prediction value: 0.873431
+2026-02-20 23:12:40,602 - DEBUG - DEBUG_03 | MD after clamping: 0.87
+2026-02-20 23:12:40,615 - DEBUG - DEBUG_03 | C raw prediction value: 0.707048
+2026-02-20 23:12:40,616 - DEBUG - DEBUG_03 | C after clamping: 0.71
+2026-02-20 23:12:42,585 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:12:42,585 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=256.0000  mean=248.7800
+2026-02-20 23:12:42,585 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1045.0909  max=1064.0000  mean=1057.5991
+2026-02-20 23:12:42,585 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=57.8182  max=205.0000  mean=188.4499
+2026-02-20 23:12:42,604 - DEBUG - DEBUG_03 | MD raw prediction value: 0.873841
+2026-02-20 23:12:42,605 - DEBUG - DEBUG_03 | MD after clamping: 0.87
+2026-02-20 23:12:42,618 - DEBUG - DEBUG_03 | C raw prediction value: 0.718164
+2026-02-20 23:12:42,618 - DEBUG - DEBUG_03 | C after clamping: 0.72
+2026-02-20 23:12:44,591 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:12:44,591 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=256.0000  mean=248.9216
+2026-02-20 23:12:44,591 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1045.0909  max=1064.0000  mean=1057.6854
+2026-02-20 23:12:44,591 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=57.8182  max=205.0000  mean=188.5980
+2026-02-20 23:12:44,611 - DEBUG - DEBUG_03 | MD raw prediction value: 0.910525
+2026-02-20 23:12:44,612 - DEBUG - DEBUG_03 | MD after clamping: 0.91
+2026-02-20 23:12:44,626 - DEBUG - DEBUG_03 | C raw prediction value: 0.712185
+2026-02-20 23:12:44,626 - DEBUG - DEBUG_03 | C after clamping: 0.71
+2026-02-20 23:12:46,591 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:12:46,591 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=256.0000  mean=249.0577
+2026-02-20 23:12:46,591 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1045.0909  max=1064.0000  mean=1057.7684
+2026-02-20 23:12:46,591 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=57.8182  max=205.0000  mean=188.7403
+2026-02-20 23:12:46,608 - DEBUG - DEBUG_03 | MD raw prediction value: 0.886015
+2026-02-20 23:12:46,610 - DEBUG - DEBUG_03 | MD after clamping: 0.89
+2026-02-20 23:12:46,622 - DEBUG - DEBUG_03 | C raw prediction value: 0.706185
+2026-02-20 23:12:46,622 - DEBUG - DEBUG_03 | C after clamping: 0.71
+2026-02-20 23:12:48,594 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:12:48,594 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=256.0000  mean=249.1887
+2026-02-20 23:12:48,594 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1045.0909  max=1064.0000  mean=1057.8482
+2026-02-20 23:12:48,594 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=57.8182  max=205.0000  mean=188.8773
+2026-02-20 23:12:48,613 - DEBUG - DEBUG_03 | MD raw prediction value: 0.597227
+2026-02-20 23:12:48,614 - DEBUG - DEBUG_03 | MD after clamping: 0.6
+2026-02-20 23:12:48,625 - DEBUG - DEBUG_03 | C raw prediction value: 0.711511
+2026-02-20 23:12:48,626 - DEBUG - DEBUG_03 | C after clamping: 0.71
+2026-02-20 23:12:50,595 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:12:50,595 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=256.0000  mean=249.2778
+2026-02-20 23:12:50,595 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1045.0909  max=1064.0000  mean=1057.9251
+2026-02-20 23:12:50,595 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=57.8182  max=205.0000  mean=189.0092
+2026-02-20 23:12:50,613 - DEBUG - DEBUG_03 | MD raw prediction value: 0.808184
+2026-02-20 23:12:50,613 - DEBUG - DEBUG_03 | MD after clamping: 0.81
+2026-02-20 23:12:50,626 - DEBUG - DEBUG_03 | C raw prediction value: 0.642352
+2026-02-20 23:12:50,626 - DEBUG - DEBUG_03 | C after clamping: 0.64
+2026-02-20 23:12:52,596 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:12:52,596 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=256.0000  mean=249.3636
+2026-02-20 23:12:52,596 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1045.0909  max=1064.0000  mean=1057.9992
+2026-02-20 23:12:52,596 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=57.8182  max=205.0000  mean=189.1363
+2026-02-20 23:12:52,617 - DEBUG - DEBUG_03 | MD raw prediction value: 0.904045
+2026-02-20 23:12:52,617 - DEBUG - DEBUG_03 | MD after clamping: 0.9
+2026-02-20 23:12:52,629 - DEBUG - DEBUG_03 | C raw prediction value: 0.639673
+2026-02-20 23:12:52,629 - DEBUG - DEBUG_03 | C after clamping: 0.64
+2026-02-20 23:12:54,602 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:12:54,602 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=256.0000  mean=249.4464
+2026-02-20 23:12:54,603 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1045.0909  max=1064.0000  mean=1058.0706
+2026-02-20 23:12:54,603 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=57.8182  max=205.0000  mean=189.2589
+2026-02-20 23:12:54,621 - DEBUG - DEBUG_03 | MD raw prediction value: 0.859007
+2026-02-20 23:12:54,621 - DEBUG - DEBUG_03 | MD after clamping: 0.86
+2026-02-20 23:12:54,634 - DEBUG - DEBUG_03 | C raw prediction value: 0.631206
+2026-02-20 23:12:54,634 - DEBUG - DEBUG_03 | C after clamping: 0.63
+2026-02-20 23:12:56,598 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:12:56,598 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=256.0000  mean=249.5263
+2026-02-20 23:12:56,598 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1045.0909  max=1064.0000  mean=1058.1396
+2026-02-20 23:12:56,599 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=57.8182  max=205.0000  mean=189.3771
+2026-02-20 23:12:56,616 - DEBUG - DEBUG_03 | MD raw prediction value: 0.880465
+2026-02-20 23:12:56,617 - DEBUG - DEBUG_03 | MD after clamping: 0.88
+2026-02-20 23:12:56,629 - DEBUG - DEBUG_03 | C raw prediction value: 0.651623
+2026-02-20 23:12:56,629 - DEBUG - DEBUG_03 | C after clamping: 0.65
+2026-02-20 23:12:58,607 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:12:58,607 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=256.0000  mean=249.6034
+2026-02-20 23:12:58,607 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1045.0909  max=1064.0000  mean=1058.1561
+2026-02-20 23:12:58,607 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=57.8182  max=205.0000  mean=189.5017
+2026-02-20 23:12:58,625 - DEBUG - DEBUG_03 | MD raw prediction value: 0.881592
+2026-02-20 23:12:58,626 - DEBUG - DEBUG_03 | MD after clamping: 0.88
+2026-02-20 23:12:58,639 - DEBUG - DEBUG_03 | C raw prediction value: 0.661170
+2026-02-20 23:12:58,639 - DEBUG - DEBUG_03 | C after clamping: 0.66
+2026-02-20 23:13:00,605 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:13:00,605 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=256.0000  mean=249.6780
+2026-02-20 23:13:00,605 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1045.0909  max=1064.0000  mean=1058.1959
+2026-02-20 23:13:00,605 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=57.8182  max=205.0000  mean=189.5864
+2026-02-20 23:13:00,624 - DEBUG - DEBUG_03 | MD raw prediction value: 0.862772
+2026-02-20 23:13:00,624 - DEBUG - DEBUG_03 | MD after clamping: 0.86
+2026-02-20 23:13:00,637 - DEBUG - DEBUG_03 | C raw prediction value: 0.640039
+2026-02-20 23:13:00,637 - DEBUG - DEBUG_03 | C after clamping: 0.64
+2026-02-20 23:13:02,599 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:13:02,600 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=263.0000  mean=249.9000
+2026-02-20 23:13:02,600 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1045.0909  max=1064.0000  mean=1058.2398
+2026-02-20 23:13:02,600 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=57.8182  max=205.0000  mean=189.6627
+2026-02-20 23:13:02,612 - DEBUG - DEBUG_03 | MD raw prediction value: 0.859482
+2026-02-20 23:13:02,612 - DEBUG - DEBUG_03 | MD after clamping: 0.86
+2026-02-20 23:13:02,623 - DEBUG - DEBUG_03 | C raw prediction value: 0.638027
+2026-02-20 23:13:02,623 - DEBUG - DEBUG_03 | C after clamping: 0.64
+2026-02-20 23:13:04,604 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:13:04,605 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=263.0000  mean=250.1148
+2026-02-20 23:13:04,605 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1045.0909  max=1064.0000  mean=1058.2605
+2026-02-20 23:13:04,605 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=57.8182  max=205.0000  mean=189.7202
+2026-02-20 23:13:04,618 - DEBUG - DEBUG_03 | MD raw prediction value: 0.885819
+2026-02-20 23:13:04,619 - DEBUG - DEBUG_03 | MD after clamping: 0.89
+2026-02-20 23:13:04,630 - DEBUG - DEBUG_03 | C raw prediction value: 0.659002
+2026-02-20 23:13:04,630 - DEBUG - DEBUG_03 | C after clamping: 0.66
+2026-02-20 23:13:06,604 - DEBUG - DEBUG_02 | No entirely-zero columns detected in cov_df.
+2026-02-20 23:13:06,604 - DEBUG - DEBUG_02 | PELLET_CCS  ->  min=241.0000  max=263.0000  mean=250.3226
+2026-02-20 23:13:06,605 - DEBUG - DEBUG_02 | INST_TEMP_UPPER  ->  min=1045.0909  max=1064.0000  mean=1058.2791
+2026-02-20 23:13:06,605 - DEBUG - DEBUG_02 | INST_WTH15  ->  min=57.8182  max=205.0000  mean=189.7032
+2026-02-20 23:13:06,617 - DEBUG - DEBUG_03 | MD raw prediction value: 0.689451
+2026-02-20 23:13:06,617 - DEBUG - DEBUG_03 | MD after clamping: 0.69
+2026-02-20 23:13:06,628 - DEBUG - DEBUG_03 | C raw prediction value: 0.658637
+2026-02-20 23:13:06,628 - DEBUG - DEBUG_03 | C after clamping: 0.66

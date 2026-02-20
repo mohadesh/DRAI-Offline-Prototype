@@ -362,5 +362,34 @@
       };
     }
   </script>
+  <!-- Apply dashboard SVG tag values after HTMX swaps the dashboard fragment (scripts in swapped content do not run) -->
+  <script>
+    document.body.addEventListener('htmx:afterSettle', function(ev) {
+      var target = ev.detail && ev.detail.target;
+      if (!target || target.id !== 'dashboard-inner') return;
+      var wrapper = target.querySelector('#dashboard-svg-wrapper');
+      if (!wrapper) return;
+      var obj = wrapper.querySelector('#dashboard-svg-object');
+      var dataEl = wrapper.querySelector('#dashboard-tag-values');
+      if (!obj || !dataEl) return;
+      var data = {};
+      try { data = JSON.parse(dataEl.textContent); } catch (e) { return; }
+      function apply() {
+        if (!obj.contentDocument) return;
+        var svg = obj.contentDocument;
+        var elements = svg.querySelectorAll('[id^="val__"]');
+        elements.forEach(function(el) {
+          var tag = el.id.replace(/^val__/, '');
+          var val = data[tag];
+          if (val !== undefined && val !== null) {
+            var tspan = el.querySelector('tspan');
+            (tspan || el).textContent = val;
+          }
+        });
+      }
+      obj.addEventListener('load', apply);
+      if (obj.contentDocument) apply();
+    });
+  </script>
 </body>
 </html>

@@ -6,7 +6,7 @@ import socket
 import pickle
 import warnings
 from pathlib import Path
-from flask import Flask, render_template, request, jsonify, session
+from flask import Flask, render_template, request, jsonify, session, send_from_directory
 import pandas as pd
 import jdatetime
 
@@ -159,6 +159,39 @@ def sim_reset():
     if runner: runner.reset(); return jsonify({"success": True})
     return jsonify({"success": False}), 400
 
+# Allowed process tags for the graphical dashboard (exact or suffix match)
+ALLOWED_PROCESS_TAGS = [
+    "AITC10", "AITC09", "FTA22A36", "TTA351", "AITA321", "AITA311", "FTA33", "FTA82",
+    "PDIA48", "AITA331", "TTA341", "PTA45", "WTH15", "AITA18", "TTA19", "FTA19",
+    "MDNC_M_D", "MDNC_C", "Pellet_FeO", "Pellet_CCS",
+    "TTA521", "TTA522", "TTA523", "TTA524", "TTA525", "TTA526", "TTA527", "TTA528", "TTA529", "TTA5210",
+]
+
+def _build_dashboard_tag_values(current_data):
+    """Build a dict of tag name -> formatted value for SVG val__ elements (exact or suffix match)."""
+    out = {}
+    if not current_data:
+        return {tag: "—" for tag in ALLOWED_PROCESS_TAGS}
+    for tag in ALLOWED_PROCESS_TAGS:
+        value = None
+        for key, v in current_data.items():
+            key_str = str(key).strip()
+            if key_str == tag or key_str.endswith(tag):
+                if v is not None and v != "":
+                    try:
+                        f = float(v)
+                        value = f
+                        break
+                    except (TypeError, ValueError):
+                        pass
+        out[tag] = "%.2f" % value if value is not None else "—"
+    return out
+
+@app.route("/dashboard/<path:filename>")
+def serve_dashboard(filename):
+    """Serve dashboard assets (e.g. GolgoharDashboard.svg)."""
+    return send_from_directory("dashboard", filename)
+
 @app.route("/update-dashboard", methods=["GET"])
 def update_dashboard():
     """
@@ -166,13 +199,21 @@ def update_dashboard():
     Sends a HISTORY WINDOW to the inference engine.
     """
     if 'session_id' not in session:
-        return render_template("partials/dashboard.html", error="Session not found")
+        return render_template(
+            "partials/dashboard.html",
+            error="Session not found",
+            tag_values={t: "—" for t in ALLOWED_PROCESS_TAGS},
+        )
 
     session_id = session['session_id']
     runner = _simulation_runners.get(session_id)
 
     if runner is None:
-        return render_template("partials/dashboard.html", error="No data loaded")
+        return render_template(
+            "partials/dashboard.html",
+            error="No data loaded",
+            tag_values={t: "—" for t in ALLOWED_PROCESS_TAGS},
+        )
 
     # Get current step data (for display)
     current_data = runner.get_current_step()
@@ -213,11 +254,14 @@ def update_dashboard():
     if runner.is_running and not runner.is_paused:
         runner.get_next_step()
 
+    tag_values = _build_dashboard_tag_values(current_data)
+
     return render_template(
         "partials/dashboard.html",
         current_data=current_data,
         predictions=predictions,
         progress=progress,
+        tag_values=tag_values,
         error=None
     )
 
