@@ -93,7 +93,7 @@ def _simulated_predictions(current_data):
     c_raw  = _get_tag(current_data, "MDNC_C")
 
     return {
-        "MD": _noisy(md_raw, 0.0, _MD_MAX, 0.03, 0.05),   # MD: ±3–5 %
+        "MD": _noisy(md_raw, 0.0, _MD_MAX, 0.01, 0.02),   # MD: ±1–3 %
         "C":  _noisy(c_raw,  _C_MIN, _C_MAX, 0.05, 0.15), # C:  ±5–15 %
     }
 
@@ -308,12 +308,12 @@ def update_dashboard():
             except Exception as e:
                 logger.error(f"Jalali conversion error: {e}")
 
-        # 2. PREDICTION — real model or simulated noise
-        if SIMULATE_PREDICTIONS:
+        # 2. PREDICTION — only while simulation is actively stepping forward
+        if SIMULATE_PREDICTIONS and runner.is_running and not runner.is_paused:
             predictions = _simulated_predictions(current_data)
             logger.debug("SIMULATE_PREDICTIONS active: MD=%s  C=%s",
                          predictions.get("MD"), predictions.get("C"))
-        else:
+        elif runner.is_running and not runner.is_paused:
             WINDOW_SIZE = 120
             start_idx = max(0, runner.current_index - WINDOW_SIZE)
             end_idx = runner.current_index + 1
