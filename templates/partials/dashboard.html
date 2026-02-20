@@ -13,13 +13,16 @@
       </span>
     </div>
     {% if progress %}
+    {% set prog_current = progress.current | default(progress.current_index) %}
+    {% set prog_total = progress.total | default(progress.total_rows) %}
+    {% set prog_percent = progress.percent | default(progress.progress_percent) %}
     <div class="mt-2">
       <div class="mb-1 flex justify-between text-sm text-slate-600">
-        <span>پیشرفت: {{ progress.current_index }} / {{ progress.total_rows }}</span>
-        <span>{{ progress.progress_percent }}%</span>
+        <span>پیشرفت: {{ prog_current }} / {{ prog_total }}</span>
+        <span>{{ prog_percent }}%</span>
       </div>
       <div class="h-2 w-full overflow-hidden rounded-full bg-slate-200">
-        <div class="h-full bg-blue-600 transition-all duration-300" style="width: {{ progress.progress_percent }}%"></div>
+        <div class="h-full bg-blue-600 transition-all duration-300" style="width: {{ prog_percent }}%"></div>
       </div>
     </div>
     {% endif %}
@@ -30,9 +33,11 @@
     <h3 class="mb-2 text-lg font-semibold text-slate-800">زمان فعلی</h3>
     <div class="space-y-1">
       <p class="text-sm text-slate-600">شمسی (جلالی):</p>
-      <p class="text-xl font-mono text-slate-800">{{ current_data.jalali_datetime_str if current_data.jalali_datetime_str else 'نامشخص' }}</p>
+      <p class="text-xl font-mono text-slate-800">
+        {{ current_data.get('enter_jalali_datetime_str') or current_data.get('jalali_datetime_str') or current_data.get('georgian_datetime') or 'نامشخص' }}
+      </p>
       <p class="mt-2 text-sm text-slate-600">میلادی:</p>
-      <p class="text-lg font-mono text-slate-700">{{ current_data.georgian_datetime if current_data.georgian_datetime else 'نامشخص' }}</p>
+      <p class="text-lg font-mono text-slate-700">{{ current_data.get('georgian_datetime') or 'نامشخص' }}</p>
     </div>
   </div>
 
@@ -82,24 +87,17 @@
     </div>
   </div>
 
-  <!-- Key Process Tags -->
+  <!-- Key Process Tags: only numeric values, exclude datetime/Unnamed/hours/str keys -->
   <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
     <h3 class="mb-3 text-lg font-semibold text-slate-800">تگ‌های فرآیندی مهم</h3>
     <div class="grid grid-cols-2 gap-3 md:grid-cols-3">
       {% for key, value in current_data.items() %}
-        {% if key.startswith('INST_') and value is not none and key != 'INST_WTH15' %}
-          {% set tag_name = key.replace('INST_', '') %}
+        {% set key_lower = key | lower %}
+        {% set skip_key = 'datetime' in key_lower or 'time' in key_lower or 'unnamed' in key_lower or 'hours' in key_lower or 'str' in key_lower %}
+        {% if not skip_key and value is not none and value != '' and value is number %}
           <div class="rounded-lg border border-slate-100 bg-slate-50 p-2">
-            <p class="text-xs font-medium text-slate-600">{{ tag_name }}</p>
-            <p class="text-sm font-semibold text-slate-800">
-              {% if value is number %}
-                {{ "%.2f"|format(value) }}
-              {% elif value is not none and value != '' %}
-                {{ value }}
-              {% else %}
-                N/A
-              {% endif %}
-            </p>
+            <p class="text-xs font-medium text-slate-600">{{ key }}</p>
+            <p class="text-sm font-semibold text-slate-800">{{ "%.2f"|format(value | float) }}</p>
           </div>
         {% endif %}
       {% endfor %}
