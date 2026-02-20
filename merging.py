@@ -3,13 +3,27 @@ import pandas as pd
 import argparse
 from pathlib import Path
 
-def create_master_dataset(process_path, pellet_path, md_path, output_path, rate='30T'):
+def normalize_freq(freq_str):
+    """
+    Fix for Pandas >= 2.2.0 compatibility.
+    Converts 'H' -> 'h' and 'T' -> 'min'
+    """
+    if not freq_str:
+        return "30min"
+    f = str(freq_str).strip()
+    f = f.replace("H", "h").replace("T", "min")
+    return f
+
+def create_master_dataset(process_path, pellet_path, md_path, output_path, rate='30min'):
     """
     Creates a master dataset by merging three data sources onto a dynamic time grid.
     The time grid is determined by the min/max timestamps in the process_path file.
     """
+    # Fix pandas frequency string before doing anything
+    safe_rate = normalize_freq(rate)
+    
     print("\n" + "="*80)
-    print(f"MASTER DATASET CREATION | RATE: {rate.upper()}")
+    print(f"MASTER DATASET CREATION | RATE: {safe_rate}")
     print("="*80)
 
     # --- STEP 1: LOAD MAIN FILE & DEFINE DYNAMIC TIME GRID ---
@@ -22,17 +36,16 @@ def create_master_dataset(process_path, pellet_path, md_path, output_path, rate=
 
         if pd.isna(start_dt) or pd.isna(end_dt):
             raise ValueError("Could not determine a valid date range from the process file.")
-            
+
         print(f"  • Detected Start: {start_dt}")
         print(f"  • Detected End:   {end_dt}")
-        
+
     except Exception as e:
         print(f"  ✗ FATAL: Could not read date range from process file. Error: {e}")
-        # Exit or raise if the main file is unreadable, as the pipeline cannot continue.
         raise
 
-    print(f"\n[Step 2] Creating reference time grid at '{rate}' frequency...")
-    time_index = pd.date_range(start=start_dt, end=end_dt, freq=rate)
+    print(f"\n[Step 2] Creating reference time grid at '{safe_rate}' frequency...")
+    time_index = pd.date_range(start=start_dt, end=end_dt, freq=safe_rate)
     master_df = pd.DataFrame(index=time_index)
     master_df['georgian_datetime'] = time_index
     print(f"  ✓ Created {len(master_df):,} time points.")
@@ -57,7 +70,7 @@ def create_master_dataset(process_path, pellet_path, md_path, output_path, rate=
 
             df['georgian_datetime'] = pd.to_datetime(df['georgian_datetime'], errors='coerce')
             df.dropna(subset=['georgian_datetime'], inplace=True)
-            
+
             # Aggregate duplicates by taking the mean for numeric columns
             if df['georgian_datetime'].duplicated().any():
                 numeric_cols = df.select_dtypes(include='number').columns.tolist()
@@ -66,7 +79,7 @@ def create_master_dataset(process_path, pellet_path, md_path, output_path, rate=
 
             df = df.set_index('georgian_datetime')
             source['df'] = df
-            
+
             # Select columns to merge, excluding datetime-related ones
             cols_to_merge = [c for c in df.columns if 'date' not in c.lower() and 'time' not in c.lower()]
             source['cols'] = cols_to_merge
@@ -84,22 +97,28 @@ def create_master_dataset(process_path, pellet_path, md_path, output_path, rate=
     # --- STEP 4: ORGANIZE AND SAVE ---
     print("\n[Step 4] Finalizing and saving the dataset...")
 
-    # For a clean file, let's keep only one Jalali datetime if available
+    # Organize Jalali Datetime if available
     if 'INST_jalali_datetime_str' in master_df.columns:
         master_df['jalali_datetime'] = master_df['INST_jalali_datetime_str']
-        # Drop all other source-specific jalali columns if they exist
         jalali_cols = [c for c in master_df.columns if 'jalali' in c.lower()]
         master_df = master_df.drop(columns=jalali_cols)
-        # Reorder to bring it to the front
         cols = master_df.columns.tolist()
         cols.insert(1, cols.pop(cols.index('jalali_datetime')))
         master_df = master_df[cols]
 
+    # ---------------------------------------------------------------------
+    # CRITICAL FIX: Forward Fill (ffill) missing values
+    # This ensures sparse data (like daily lab tests) are carried forward
+    # so they don't show up as 0.00 on the UI dashboard.
+    # ---------------------------------------------------------------------
+    master_df.ffill(inplace=True)
+    master_df.bfill(inplace=True) # Backfill just in case the first rows are NaN
+    
     # Drop rows where all data columns are empty
     data_cols = [c for c in master_df.columns if c not in ['georgian_datetime', 'jalali_datetime']]
     initial_rows = len(master_df)
     master_df.dropna(subset=data_cols, how='all', inplace=True)
-    print(f"  • Removed {initial_rows - len(master_df)} empty rows (where no data from any source existed).")
+    print(f"  • Removed {initial_rows - len(master_df)} empty rows.")
 
     master_df.to_csv(output_path, index=False)
     print(f"  ✓ Saved final dataset with shape {master_df.shape} to: {Path(output_path).name}")
@@ -107,14 +126,13 @@ def create_master_dataset(process_path, pellet_path, md_path, output_path, rate=
     print("MERGE COMPLETE")
     print("="*80 + "\n")
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Merge processed data sources into a master dataset.")
     parser.add_argument("--process", required=True, help="Path to the cleaned ProcessTags CSV file.")
     parser.add_argument("--pellet", required=True, help="Path to the cleaned Pellet CSV file.")
     parser.add_argument("--md", required=True, help="Path to the cleaned MD/Quality CSV file.")
     parser.add_argument("--output", "-o", required=True, help="Path for the output merged CSV file.")
-    parser.add_argument("--rate", default="30T", help="Time frequency for the master time grid (e.g., '30T', '1H').")
+    parser.add_argument("--rate", default="30min", help="Time frequency for the master time grid (e.g., '30min', '1h').")
     args = parser.parse_args()
 
     create_master_dataset(

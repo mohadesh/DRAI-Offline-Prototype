@@ -18,13 +18,22 @@ BASE_DIR = Path(__file__).resolve().parent
 UPLOADS_DIR = BASE_DIR / "uploads"
 UPLOADS_DIR.mkdir(exist_ok=True)
 
+# ---- Debug FileHandler: persist all debug logs to a dedicated file ----
+_debug_fh = logging.FileHandler(BASE_DIR / "debug_inference.log", mode="a", encoding="utf-8")
+_debug_fh.setLevel(logging.DEBUG)
+_debug_fh.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+logger.addHandler(_debug_fh)
+logger.setLevel(logging.DEBUG)
+
+_MODEL_INPUT_EXPORTED = False
+
 # Limit lines printed from subprocess to avoid IDE buffer OOM
 MAX_LINES_LOGGED = 5000
 LINES_AFTER_CAP = 500
 LOG_STDERR_LINES = 200
 
 # =========================================================================
-# ویژگی‌های استخراج شده برای مدل (پشتیبان در صورت عدم خواندن از فایل مدل)
+# Extracted features for the model (fallback in case of failure to read from the model file)
 # =========================================================================
 PAST_COVARIATES_COLS = [
     "PELLET_CCS", "PELLET_%FeO", "INST_WTH15", "INST_AITC10", "INST_AITC09",
@@ -183,6 +192,26 @@ def process_data(process_files, pellet_files, md_files, resample_rate="30T", mod
         final_df = pd.read_csv(output_merged, parse_dates=['georgian_datetime'])
         logger.info("Session %s done. Rows: %d", session_id, len(final_df))
 
+        # ---- DEBUG STEP 1: Inspect merged data ----
+        logger.debug(
+            "DEBUG_01 | final_df shape: %s | columns: %s",
+            final_df.shape, list(final_df.columns),
+        )
+        missing_counts = final_df.isnull().sum()
+        cols_with_missing = missing_counts[missing_counts > 0]
+        if cols_with_missing.empty:
+            logger.debug("DEBUG_01 | No missing values in final_df.")
+        else:
+            logger.debug(
+                "DEBUG_01 | Columns with missing values:\n%s", cols_with_missing.to_string(),
+            )
+        try:
+            debug_csv_path = UPLOADS_DIR / "DEBUG_01_merged_sample.csv"
+            final_df.head(500).to_csv(debug_csv_path, index=False)
+            logger.debug("DEBUG_01 | Exported first 500 rows -> %s", debug_csv_path)
+        except Exception as exc:
+            logger.warning("DEBUG_01 | Failed to export merged sample: %s", exc)
+
         return {
             "success": True,
             "merged_df": final_df,
@@ -210,7 +239,7 @@ def run_inference_for_md_c(model_md, model_c, df_window, frequency="30T"):
 
     df = df_window.copy()
 
-    # --- بررسی طول داده‌های ورودی ---
+    # --- Check length of input data ---
     REQUIRED_LAGS = 24
     if len(df) < REQUIRED_LAGS:
         return {"MD": None, "C": None}
@@ -226,13 +255,55 @@ def run_inference_for_md_c(model_md, model_c, df_window, frequency="30T"):
     TARGET_C_COL = "MDNC_C"
     out = {"MD": None, "C": None}
 
-    # جایگزینی T با min برای جلوگیری از هشدار FutureWarning دات‌فریم و دارتس
+    # Replace 'T' with 'min' to avoid pandas/darts FutureWarning
     safe_freq = frequency.replace("T", "min")
 
-    # --- استخراج دقیق Covariateها (ابتدا از روی مدل، سپس از روی لیست پشتیبان) ---
+    # =========================================================================
+    # FEATURE ENGINEERING (Translating raw tags to model-expected features)
+    # Added to prevent critical values from becoming zero
+    # =========================================================================
+    # 1. Map main temperatures
+    if "INST_ROOFTEMP" in df.columns:
+        df["INST_TEMP_UPPER"] = df["INST_ROOFTEMP"]
+    
+    if "INST_TTA525" in df.columns: # TTA525 is assumed as Middle Temp
+        df["INST_TEMP_MIDDLE"] = df["INST_TTA525"]
+        
+    if "INST_FLOORTEMP" in df.columns:
+        df["INST_TEMP_LOWER"] = df["INST_FLOORTEMP"]
+
+    # 2. Calculate Deltas
+    if "INST_TEMP_UPPER" in df.columns and "INST_TEMP_MIDDLE" in df.columns:
+        df["INST_DELTA_T1"] = df["INST_TEMP_UPPER"] - df["INST_TEMP_MIDDLE"]
+        
+    if "INST_TEMP_MIDDLE" in df.columns and "INST_TEMP_LOWER" in df.columns:
+        df["INST_DELTA_T2"] = df["INST_TEMP_MIDDLE"] - df["INST_TEMP_LOWER"]
+        
+    if "INST_DELTA_T1" in df.columns and "INST_DELTA_T2" in df.columns:
+        df["INST_DELTA_T_DIFF"] = df["INST_DELTA_T1"] - df["INST_DELTA_T2"]
+
+    # 3. Calculate time-based features (Rolling / Rate)
+    # Assuming 30T timeframe. 12 records = 6 hours.
+    try:
+        # Gas flow variance over the last 6 hours
+        if "INST_FTB061" in df.columns: 
+            df["INST_FLOW_VAR_6H"] = df["INST_FTB061"].rolling(window=12, min_periods=1).var().fillna(0.0)
+            
+        # Bustle Pressure slope
+        if "INST_PTB081" in df.columns: 
+            df["INST_BPR_SLOPE"] = df["INST_PTB081"].diff().fillna(0.0)
+            
+        # Bustle Temp rate of change
+        if "INST_TTA801" in df.columns: 
+            df["INST_BUSTLE_TEMP_RATE"] = df["INST_TTA801"].diff().fillna(0.0)
+    except Exception as e:
+        logger.warning("Feature Engineering Error (Rolling features): %s", e)
+    # =========================================================================
+
+    # --- Exact extraction of Covariates (first from model, then from fallback list) ---
     expected_covs = None
     active_model = model_md if model_md is not None else model_c
-    
+
     if active_model is not None and hasattr(active_model, 'past_covariate_components'):
         expected_covs = list(active_model.past_covariate_components)
 
@@ -244,7 +315,7 @@ def run_inference_for_md_c(model_md, model_c, df_window, frequency="30T"):
         if TARGET_MD_COL in expected_covs: expected_covs.remove(TARGET_MD_COL)
         if TARGET_C_COL in expected_covs: expected_covs.remove(TARGET_C_COL)
 
-    # پد کردن ستون‌های از دست رفته با 0
+    # Pad missing columns with 0.0
     for col in expected_covs:
         if col not in df.columns:
             df[col] = 0.0
@@ -256,6 +327,36 @@ def run_inference_for_md_c(model_md, model_c, df_window, frequency="30T"):
             return TimeSeries.from_dataframe(data_df, freq=safe_freq)
         except Exception:
             return TimeSeries.from_dataframe(data_df)
+
+    # ---- DEBUG STEP 2: Inspect exact model input ----
+    global _MODEL_INPUT_EXPORTED
+    try:
+        zero_cols = [c for c in cov_df.columns if (cov_df[c] == 0.0).all()]
+        if zero_cols:
+            logger.debug(
+                "DEBUG_02 | %d columns are ENTIRELY zeros (suspicious): %s",
+                len(zero_cols), zero_cols,
+            )
+        else:
+            logger.debug("DEBUG_02 | No entirely-zero columns detected in cov_df.")
+
+        critical_features = ["PELLET_CCS", "INST_TEMP_UPPER", "INST_WTH15"]
+        for feat in critical_features:
+            if feat in cov_df.columns:
+                logger.debug(
+                    "DEBUG_02 | %s  ->  min=%.4f  max=%.4f  mean=%.4f",
+                    feat, cov_df[feat].min(), cov_df[feat].max(), cov_df[feat].mean(),
+                )
+            else:
+                logger.debug("DEBUG_02 | %s  ->  NOT PRESENT in cov_df", feat)
+
+        if not _MODEL_INPUT_EXPORTED:
+            debug_input_path = UPLOADS_DIR / "DEBUG_02_model_input_features.csv"
+            cov_df.to_csv(debug_input_path)
+            logger.debug("DEBUG_02 | Exported cov_df (%s) -> %s", cov_df.shape, debug_input_path)
+            _MODEL_INPUT_EXPORTED = True
+    except Exception as exc:
+        logger.warning("DEBUG_02 | Logging failed (non-fatal): %s", exc)
 
     covariate_series = get_ts(cov_df)
 
@@ -272,7 +373,10 @@ def run_inference_for_md_c(model_md, model_c, df_window, frequency="30T"):
             target_series_md = get_target_series(TARGET_MD_COL)
             pred = model_md.predict(n=1, series=target_series_md, past_covariates=covariate_series)
             val = float(pred.values().flatten()[0])
+            # ---- DEBUG STEP 3: Raw MD output ----
+            logger.debug("DEBUG_03 | MD raw prediction value: %.6f", val)
             out["MD"] = round(max(0.0, min(val, 100.0)), 2)
+            logger.debug("DEBUG_03 | MD after clamping: %s", out["MD"])
         except Exception as e:
             logger.error(f"MD prediction failed: {e}")
             out["MD"] = None
@@ -283,7 +387,10 @@ def run_inference_for_md_c(model_md, model_c, df_window, frequency="30T"):
             target_series_c = get_target_series(TARGET_C_COL)
             pred = model_c.predict(n=1, series=target_series_c, past_covariates=covariate_series)
             val = float(pred.values().flatten()[0])
+            # ---- DEBUG STEP 3: Raw C output ----
+            logger.debug("DEBUG_03 | C raw prediction value: %.6f", val)
             out["C"] = round(max(0.0, val), 2)
+            logger.debug("DEBUG_03 | C after clamping: %s", out["C"])
         except Exception as e:
             logger.error(f"C prediction failed: {e}")
             out["C"] = None

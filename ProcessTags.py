@@ -1,5 +1,6 @@
 # ProcessTags.py — Process, clean, and calculate residence times for DRI data.
 # Uses argparse, consistent column names (enter_deltatime_hours), pandas 'min' frequency, numeric-only resample.
+# FIXED: Pandas 2.2.0 compatibility (H -> h)
 
 import argparse
 import csv
@@ -61,7 +62,6 @@ def detect_file_properties(file_path):
 
     return encoding, delimiter
 
-
 def parse_jalali_datetime(row):
     """
     Safely converts Jalali YEAR, MONTH, DAY, Time columns to a single Gregorian datetime object.
@@ -86,7 +86,6 @@ def parse_jalali_datetime(row):
     except (ValueError, TypeError, IndexError):
         return pd.NaT
 
-
 def datetime_to_jalali_string(dt):
     """Converts a Gregorian datetime object back to a formatted Jalali string."""
     if pd.isna(dt):
@@ -97,17 +96,28 @@ def datetime_to_jalali_string(dt):
     except Exception:
         return None
 
-
 def normalize_resample_freq(freq):
     """
-    Standardizes frequency string for pandas. Replaces 'T' with 'min' to avoid future warnings.
-    e.g., '30T' becomes '30min'.
+    Standardizes frequency string for pandas. 
+    Crucial Fix: Replaces 'H' with 'h' for Pandas >= 2.2.0 compatibility.
+    Replaces 'T' with 'min'.
     """
     if not freq:
         return None
-    # Ensure it's a string, clean it, and make replacement
-    return str(freq).strip().upper().replace("T", "min")
-
+    
+    # Ensure it's a string
+    f = str(freq).strip()
+    
+    # --- FIX START: Handle Pandas Case Sensitivity ---
+    # Pandas 2.2+ removed support for 'H' (must be 'h')
+    # Use simple replacements to be safe
+    f = f.replace("H", "h")
+    
+    # Pandas prefers 'min' over 'T'
+    f = f.replace("T", "min")
+    # -----------------------------------------------
+    
+    return f
 
 def main():
     parser = argparse.ArgumentParser(
@@ -118,7 +128,7 @@ def main():
     parser.add_argument(
         "--resample-rate",
         default=None,
-        help="Resampling frequency (e.g., '30min', '1H'). If not provided, no resampling is done."
+        help="Resampling frequency (e.g., '30min', '1h'). If not provided, no resampling is done."
     )
     args = parser.parse_args()
 
@@ -226,7 +236,6 @@ def main():
         import traceback
         traceback.print_exc(file=sys.stderr)
         sys.exit(1)
-
 
 if __name__ == "__main__":
     main()
