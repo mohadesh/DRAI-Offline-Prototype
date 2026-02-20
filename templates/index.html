@@ -4,13 +4,22 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>داشبورد مانیتورینگ و پیش‌بینی DRAI</title>
-  <!-- فقط فایل‌های لوکال — بدون CDN -->
+  <!-- HTMX for partial updates and control requests -->
+  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+  <!-- Local fallback: <script src="/static/vendor/htmx.min.js"></script> -->
   <script src="/static/vendor/tailwind.js"></script>
-  <script src="/static/vendor/htmx.min.js"></script>
   <script src="/static/vendor/alpine.min.js" defer></script>
 </head>
 <body class="min-h-screen bg-slate-100 font-sans text-slate-800">
-  <div class="mx-auto max-w-7xl px-4 py-8">
+  <div
+    id="app-root"
+    class="mx-auto max-w-7xl px-4 py-8"
+    x-data="uploadForm()"
+    @simulation-started.window="simRunning = true; simPaused = false"
+    @simulation-paused.window="simPaused = true"
+    @simulation-resumed.window="simPaused = false"
+    @simulation-reset.window="simRunning = false; simPaused = false"
+  >
     <header class="mb-8 text-center">
       <h1 class="text-3xl font-bold text-slate-800">داشبورد مانیتورینگ و پیش‌بینی DRAI</h1>
       <p class="mt-2 text-slate-600">سیستم شبیه‌سازی آفلاین برای پردازش و پیش‌بینی داده‌های کوره</p>
@@ -24,7 +33,6 @@
         <form
           id="upload-form"
           x-ref="uploadForm"
-          x-data="uploadForm()"
           @submit.prevent="handleUpload"
           enctype="multipart/form-data"
           class="space-y-4"
@@ -122,33 +130,49 @@
         </form>
       </section>
 
-      <!-- Simulation Controls -->
+      <!-- Simulation Controls: HTMX POST (no swap) + Alpine for UI state -->
       <section class="rounded-2xl border-2 border-slate-300 bg-white p-6 shadow-sm" x-show="dataLoaded">
         <h2 class="mb-4 text-xl font-semibold text-slate-800">کنترل شبیه‌سازی</h2>
         <div class="flex flex-wrap gap-3">
           <button
-            @click="startSimulation"
+            type="button"
+            hx-post="/simulation/start"
+            hx-swap="none"
+            hx-trigger="click"
+            hx-on::htmx:after-request="if(event.detail.successful){ window.dispatchEvent(new CustomEvent('simulation-started')); htmx.trigger('#dashboard-inner', 'htmx:trigger'); }"
             :disabled="simRunning"
             class="rounded-lg bg-green-600 px-4 py-2 font-medium text-white transition hover:bg-green-700 disabled:opacity-50"
           >
             شروع شبیه‌سازی
           </button>
           <button
-            @click="pauseSimulation"
+            type="button"
+            hx-post="/simulation/pause"
+            hx-swap="none"
+            hx-trigger="click"
+            hx-on::htmx:after-request="if(event.detail.successful){ window.dispatchEvent(new CustomEvent('simulation-paused')); htmx.trigger('#dashboard-inner', 'htmx:trigger'); }"
             :disabled="!simRunning"
             class="rounded-lg bg-yellow-600 px-4 py-2 font-medium text-white transition hover:bg-yellow-700 disabled:opacity-50"
           >
             توقف موقت
           </button>
           <button
-            @click="resumeSimulation"
+            type="button"
+            hx-post="/simulation/resume"
+            hx-swap="none"
+            hx-trigger="click"
+            hx-on::htmx:after-request="if(event.detail.successful){ window.dispatchEvent(new CustomEvent('simulation-resumed')); htmx.trigger('#dashboard-inner', 'htmx:trigger'); }"
             :disabled="!simPaused"
             class="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
           >
             ادامه
           </button>
           <button
-            @click="resetSimulation"
+            type="button"
+            hx-post="/simulation/reset"
+            hx-swap="none"
+            hx-trigger="click"
+            hx-on::htmx:after-request="if(event.detail.successful){ window.dispatchEvent(new CustomEvent('simulation-reset')); htmx.trigger('#dashboard-inner', 'htmx:trigger'); }"
             class="rounded-lg bg-red-600 px-4 py-2 font-medium text-white transition hover:bg-red-700"
           >
             بازنشانی
@@ -156,18 +180,18 @@
         </div>
       </section>
 
-      <!-- Dashboard Section -->
-      <section
-        id="dashboard"
-        class="rounded-2xl border-2 border-slate-300 bg-white p-6 shadow-sm"
-        hx-get="/update-dashboard"
-        hx-trigger="every 5s"
-        hx-swap="innerHTML"
-        x-show="dataLoaded"
-      >
+      <!-- Dashboard: auto-update every 2s and on load -->
+      <section class="rounded-2xl border-2 border-slate-300 bg-white p-6 shadow-sm" x-show="dataLoaded">
         <h2 class="mb-4 text-xl font-semibold text-slate-800">داشبورد مانیتورینگ</h2>
-        <div class="text-center text-slate-500">
-          <p>در حال بارگذاری...</p>
+        <div
+          id="dashboard-inner"
+          hx-get="/update-dashboard"
+          hx-trigger="load, every 2s"
+          hx-swap="innerHTML"
+        >
+          <div class="text-center text-slate-500">
+            <p>در حال بارگذاری...</p>
+          </div>
         </div>
       </section>
     </main>
@@ -267,10 +291,10 @@
               this.uploadSuccess = true;
               this.dataLoaded = true;
               
-              // Start polling dashboard
+              // Trigger initial dashboard load
               setTimeout(() => {
-                htmx.trigger('#dashboard', 'htmx:trigger');
-              }, 1000);
+                htmx.trigger('#dashboard-inner', 'htmx:trigger');
+              }, 500);
             } else {
               this.uploadMessage = result.error || 'خطا در آپلود';
               this.uploadSuccess = false;
