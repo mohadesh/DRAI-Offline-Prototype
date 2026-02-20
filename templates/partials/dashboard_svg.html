@@ -1,12 +1,12 @@
 {# SVG panel only - no border in light; subtle container in dark for consistency #}
-<div id="dashboard-svg-wrapper" class="min-w-0 w-full dark:rounded-xl dark:border dark:border-slate-600 dark:bg-slate-800 dark:p-2">
+<div id="dashboard-svg-wrapper" class="min-w-0 w-full dark:rounded-xl dark:border dark:border-zinc-600 dark:bg-zinc-900 dark:p-2">
   <object
     id="dashboard-svg-object"
     data="{{ url_for('serve_dashboard', filename='GolgoharDashboard.svg') }}"
     type="image/svg+xml"
     class="w-full h-auto min-w-0 block"
     style="max-height: 85vh;"
-    aria-label="داشبورد تگ‌های فرآیندی"
+    aria-label="Process tags dashboard"
   ></object>
   <script type="application/json" id="dashboard-tag-values">{{ tag_values | tojson }}</script>
 </div>
