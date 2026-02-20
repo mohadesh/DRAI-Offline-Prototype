@@ -8,6 +8,8 @@ import pickle
 from pathlib import Path
 from flask import Flask, render_template, request, jsonify, session
 import pandas as pd
+import jdatetime
+
 
 # ماژول‌های داخلی
 import core_logic
@@ -154,6 +156,10 @@ def sim_reset():
 
 @app.route("/update-dashboard", methods=["GET"])
 def update_dashboard():
+    """
+    Endpoint for HTMX polling to get current simulation state.
+    Sends a HISTORY WINDOW to the inference engine.
+    """
     if 'session_id' not in session:
         return render_template("partials/dashboard.html", error="Session not found")
 
@@ -163,18 +169,35 @@ def update_dashboard():
     if runner is None:
         return render_template("partials/dashboard.html", error="No data loaded")
 
+    # Get current step data (for display)
     current_data = runner.get_current_step()
     progress = runner.get_progress()
-    predictions = None
 
-    # حل مشکل دیکشنری: بررسی می‌کنیم که دیکشنری خالی نباشد
-    if current_data is not None and len(current_data) > 0:
-        WINDOW_SIZE = 120 
-        start_idx = max(0, runner.current_index - WINDOW_SIZE + 1)
+    predictions = None
+    if current_data:
+        # ---------------------------------------------------------
+        # 1. FIX JALALI DATE EXPLICITLY IN BACKEND
+        # ---------------------------------------------------------
+        if 'georgian_datetime' in current_data and pd.notnull(current_data['georgian_datetime']):
+            try:
+                g_date = pd.to_datetime(current_data['georgian_datetime'])
+                j_date = jdatetime.datetime.fromgregorian(datetime=g_date)
+                # ساخت یک کلید مشخص برای فرانت‌اند
+                current_data['jalali_datetime_str'] = j_date.strftime("%Y-%m-%d %H:%M:%S")
+            except Exception as e:
+                logger.error(f"Jalali conversion error: {e}")
+
+        # ---------------------------------------------------------
+        # 2. DYNAMIC FREQUENCY & INFERENCE WINDOW
+        # ---------------------------------------------------------
+        WINDOW_SIZE = 120 # Safe buffer (e.g. 10 hours of data)
+
+        start_idx = max(0, runner.current_index - WINDOW_SIZE)
         end_idx = runner.current_index + 1
 
         df_window = runner.df.iloc[start_idx:end_idx].copy()
-        
+
+        # گرفتن فرکانس انتخابی کاربر از سشن (15T, 30T, 1h)
         freq = session.get("model_frequency", DEFAULT_MODEL_FREQUENCY)
         md_path, c_path = get_model_paths_for_frequency(freq)
 
@@ -182,13 +205,15 @@ def update_dashboard():
         model_c = get_cached_model(c_path)
 
         if model_md or model_c:
+            # پاس دادن فرکانس داینامیک به core_logic
             predictions = core_logic.run_inference_for_md_c(
                 model_md, 
                 model_c, 
                 df_window, 
-                frequency=freq
+                frequency=freq  # <--- فرکانس درست اینجا ارسال می‌شود
             )
 
+    # Advance to next step
     if runner.is_running and not runner.is_paused:
         runner.get_next_step()
 
@@ -199,6 +224,7 @@ def update_dashboard():
         progress=progress,
         error=None
     )
+
 
 def find_free_port(start_port=8000, max_tries=100):
     for port in range(start_port, start_port + max_tries):

@@ -245,7 +245,7 @@ def run_inference_for_md_c(model_md, model_c, df_window, frequency="30T"):
 
     df = df_window.copy()
     
-    # --- تغییر جدید: بررسی طول داده‌های ورودی ---
+    # --- بررسی طول داده‌های ورودی ---
     REQUIRED_LAGS = 24
     if len(df) < REQUIRED_LAGS:
         # جلوگیری از خطای Darts: متوقف کردن استنتاج تا زمانی که پنجره داده به 24 سطر برسد
@@ -262,40 +262,50 @@ def run_inference_for_md_c(model_md, model_c, df_window, frequency="30T"):
     TARGET_C_COL = "MDNC_C"
     out = {"MD": None, "C": None}
 
-    # Pad any missing covariate columns with 0 to ensure exactly 43 columns exist
-    missing_cov_cols = set(PAST_COVARIATES_COLS) - set(df.columns)
-    if missing_cov_cols:
-        # logger.warning(f"Padding missing covariates with 0: {len(missing_cov_cols)} columns")
-        for col in missing_cov_cols:
+    # --- استخراج دقیق Covariateها برای رفع مشکل LightGBM Feature Names ---
+    # اگر PAST_COVARIATES_COLS به صورت سراسری تعریف شده باشد از آن استفاده می‌کند
+    if 'PAST_COVARIATES_COLS' in globals():
+        expected_covs = PAST_COVARIATES_COLS
+    else:
+        # به عنوان پشتیبان، ستون‌های عددی را برمی‌دارد
+        expected_covs = df.select_dtypes(include=['number']).columns.tolist()
+        if TARGET_MD_COL in expected_covs: expected_covs.remove(TARGET_MD_COL)
+        if TARGET_C_COL in expected_covs: expected_covs.remove(TARGET_C_COL)
+
+    # پد کردن ستون‌های از دست رفته با 0 برای جلوگیری از کرش کردن مدل
+    for col in expected_covs:
+        if col not in df.columns:
             df[col] = 0.0
+            
+    # استخراج دقیقاً همان ستون‌ها با همان ترتیب زمان آموزش
+    cov_df = df[list(expected_covs)].fillna(0)
 
-    # Extract exactly the required 43 covariates in the exact correct order
-    cov_df = df[PAST_COVARIATES_COLS].fillna(0)
+    # Helper function برای ساخت امن TimeSeries
+    def get_ts(data_df):
+        try:
+            return TimeSeries.from_dataframe(data_df, freq=frequency)
+        except Exception as e:
+            # logger.warning(f"Could not enforce frequency '{frequency}': {e}")
+            return TimeSeries.from_dataframe(data_df)
 
-    # Convert to TimeSeries (using frequency parameter)
-    try:
-        covariate_series = TimeSeries.from_dataframe(cov_df, freq=frequency)
-    except Exception as e:
-        logger.warning(f"Could not enforce frequency '{frequency}': {e}. Falling back to default.")
-        covariate_series = TimeSeries.from_dataframe(cov_df)
+    covariate_series = get_ts(cov_df)
 
-    # Helper function to generate target series
+    # Helper function برای تولید target series
     def get_target_series(target_name):
         if target_name in df.columns:
             ts_df = df[[target_name]].fillna(0)
         else:
             ts_df = pd.DataFrame({target_name: [0.0] * len(df)}, index=df.index)
-        try:
-            return TimeSeries.from_dataframe(ts_df, freq=frequency)
-        except Exception:
-            return TimeSeries.from_dataframe(ts_df)
+        return get_ts(ts_df)
 
     # --- MD Inference ---
     if model_md is not None:
         try:
             target_series_md = get_target_series(TARGET_MD_COL)
             pred = model_md.predict(n=1, series=target_series_md, past_covariates=covariate_series)
-            out["MD"] = float(pred.values().flatten()[0])
+            val = float(pred.values().flatten()[0])
+            # اعمال محدودیت منطقی درصد (بین 0 تا 100) و رند کردن به 2 رقم اعشار
+            out["MD"] = round(max(0.0, min(val, 100.0)), 2)
         except Exception as e:
             logger.error(f"MD prediction failed: {e}")
             out["MD"] = None
@@ -305,7 +315,9 @@ def run_inference_for_md_c(model_md, model_c, df_window, frequency="30T"):
         try:
             target_series_c = get_target_series(TARGET_C_COL)
             pred = model_c.predict(n=1, series=target_series_c, past_covariates=covariate_series)
-            out["C"] = float(pred.values().flatten()[0])
+            val = float(pred.values().flatten()[0])
+            # اعمال محدودیت منطقی کربن (بزرگتر از 0) و رند کردن
+            out["C"] = round(max(0.0, val), 2)
         except Exception as e:
             logger.error(f"C prediction failed: {e}")
             out["C"] = None
