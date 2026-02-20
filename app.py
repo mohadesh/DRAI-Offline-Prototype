@@ -93,8 +93,8 @@ def _simulated_predictions(current_data):
     c_raw  = _get_tag(current_data, "MDNC_C")
 
     return {
-        "MD": _noisy(md_raw, 0.0, _MD_MAX, 0.03, 0.07),   # MD: ±3–7 %
-        "C":  _noisy(c_raw,  _C_MIN, _C_MAX, 0.05, 0.20), # C:  ±5–20 %
+        "MD": _noisy(md_raw, 0.0, _MD_MAX, 0.03, 0.05),   # MD: ±3–5 %
+        "C":  _noisy(c_raw,  _C_MIN, _C_MAX, 0.05, 0.15), # C:  ±5–15 %
     }
 
 # تنظیمات فرکانس
