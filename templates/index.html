@@ -357,32 +357,21 @@
       };
     }
   </script>
-  <!-- Apply dashboard SVG tag values: after rest swap (poll) or when SVG is in page (find tag values in rest or svg container) -->
+  <!-- Apply dashboard SVG tag values directly (SVG is inline in the same document) -->
   <script>
     function applyDashboardTagValues() {
-      var obj = document.getElementById('dashboard-svg-object');
-      if (!obj) return;
-      var dataEl = document.getElementById('dashboard-rest-container');
-      if (dataEl) dataEl = dataEl.querySelector('#dashboard-tag-values');
-      if (!dataEl) dataEl = document.querySelector('#dashboard-svg-container #dashboard-tag-values');
+      var dataEl = document.querySelector('#dashboard-tag-values');
       if (!dataEl) return;
       var data = {};
       try { data = JSON.parse(dataEl.textContent); } catch (e) { return; }
-      function apply() {
-        if (!obj.contentDocument) return;
-        var svg = obj.contentDocument;
-        var elements = svg.querySelectorAll('[id^="val__"]');
-        elements.forEach(function(el) {
-          var tag = el.id.replace(/^val__/, '');
-          var val = data[tag];
-          if (val !== undefined && val !== null) {
-            var tspan = el.querySelector('tspan');
-            (tspan || el).textContent = val;
-          }
-        });
-      }
-      obj.addEventListener('load', apply);
-      if (obj.contentDocument) apply();
+      document.querySelectorAll('[id^="val__"]').forEach(function(el) {
+        var tag = el.id.replace(/^val__/, '');
+        var val = data[tag];
+        if (val !== undefined && val !== null) {
+          var tspan = el.querySelector('tspan');
+          (tspan || el).textContent = String(val);
+        }
+      });
     }
     document.body.addEventListener('htmx:afterSettle', function() { applyDashboardTagValues(); });
   </script>

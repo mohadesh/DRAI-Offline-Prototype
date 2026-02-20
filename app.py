@@ -34,6 +34,25 @@ MODELS_DIR = BASE_DIR / "models"
 ANALYSIS_DIR = BASE_DIR / "analysis"
 DRAI_MODELING_DIR = BASE_DIR.parent / "DRAI-Modeling" / "data" / "analysis"
 
+# Cache for inline SVG content (loaded once from disk)
+_svg_content_cache = None  # type: str | None
+
+def get_svg_content():
+    """Read and cache the dashboard SVG for inline injection."""
+    global _svg_content_cache
+    if _svg_content_cache is None:
+        svg_path = BASE_DIR / "dashboard" / "GolgoharDashboard.svg"
+        try:
+            raw = svg_path.read_text(encoding="utf-8")
+            # Strip XML declaration so it can be embedded inline in HTML
+            if raw.lstrip().startswith("<?xml"):
+                raw = raw.split("?>", 1)[1].lstrip()
+            _svg_content_cache = raw
+        except Exception as e:
+            logger.error(f"Failed to read SVG file: {e}")
+            _svg_content_cache = ""
+    return _svg_content_cache
+
 # تنظیمات فرکانس
 FREQUENCY_OPTIONS = ("1h", "15T", "30T")
 DEFAULT_MODEL_FREQUENCY = "30T"
@@ -202,6 +221,9 @@ def update_dashboard():
     Sends a HISTORY WINDOW to the inference engine.
     """
     tag_values_default = {t: "—" for t in ALLOWED_PROCESS_TAGS}
+    tag_values_default["predicted-md"] = "—"
+    tag_values_default["predicted-c"] = "—"
+    tag_values_default["time"] = "—"
     if 'session_id' not in session:
         return render_template(
             "partials/dashboard_full_oob.html",
@@ -210,6 +232,7 @@ def update_dashboard():
             predictions=None,
             progress=None,
             tag_values=tag_values_default,
+            svg_content=get_svg_content(),
         )
 
     session_id = session['session_id']
@@ -223,6 +246,7 @@ def update_dashboard():
             predictions=None,
             progress=None,
             tag_values=tag_values_default,
+            svg_content=get_svg_content(),
         )
 
     # Get current step data (for display)
@@ -265,6 +289,27 @@ def update_dashboard():
         runner.get_next_step()
 
     tag_values = _build_dashboard_tag_values(current_data)
+    # Add predicted MD and C to tag_values for SVG val__predicted-md and val__predicted-c
+    if predictions is not None and predictions.get("MD") is not None:
+        tag_values["predicted-md"] = "%.2f" % predictions["MD"]
+    else:
+        tag_values["predicted-md"] = "—"
+    if predictions is not None and predictions.get("C") is not None:
+        tag_values["predicted-c"] = "%.2f" % predictions["C"]
+    else:
+        tag_values["predicted-c"] = "—"
+
+    # Add Jalali date/time for SVG val__time (multiple possible column names from merge)
+    if current_data:
+        tag_values["time"] = (
+            current_data.get("enter_jalali_datetime_str")
+            or current_data.get("jalali_datetime_str")
+            or current_data.get("jalali_datetime")
+            or str(current_data.get("georgian_datetime", "—"))
+        )
+    else:
+        tag_values["time"] = "—"
+
     partial_rest = request.args.get("partial") == "rest"
 
     if partial_rest:
@@ -282,6 +327,7 @@ def update_dashboard():
         predictions=predictions,
         progress=progress,
         tag_values=tag_values,
+        svg_content=get_svg_content(),
         error=None,
     )
 

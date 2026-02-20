@@ -1,12 +1,7 @@
-{# SVG panel only - no border wrapper #}
-<div id="dashboard-svg-wrapper" class="min-w-0 w-full">
-  <object
-    id="dashboard-svg-object"
-    data="{{ url_for('serve_dashboard', filename='GolgoharDashboard.svg') }}"
-    type="image/svg+xml"
-    class="w-full h-auto min-w-0 block"
-    style="max-height: 85vh;"
-    aria-label="Process tags dashboard"
-  ></object>
+{# SVG panel — injected inline so val__ elements are in the same document as the page #}
+<div id="dashboard-svg-wrapper" class="min-w-0 w-full overflow-auto" style="max-height: 85vh;">
+  <div id="dashboard-svg-inline" class="w-full h-auto min-w-0 block">
+    {{ svg_content | safe }}
+  </div>
   <script type="application/json" id="dashboard-tag-values">{{ tag_values | tojson }}</script>
 </div>
