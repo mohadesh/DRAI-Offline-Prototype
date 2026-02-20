@@ -1,6 +1,13 @@
 {# SVG panel — injected inline so val__ elements are in the same document as the page #}
-<div id="dashboard-svg-wrapper" class="min-w-0 w-full overflow-auto" style="max-height: 85vh;">
-  <div id="dashboard-svg-inline" class="w-full h-auto min-w-0 block">
+<style>
+  #dashboard-svg-inline svg {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+</style>
+<div id="dashboard-svg-wrapper" class="min-w-0 w-full">
+  <div id="dashboard-svg-inline" class="w-full">
     {{ svg_content | safe }}
   </div>
   <script type="application/json" id="dashboard-tag-values">{{ tag_values | tojson }}</script>
