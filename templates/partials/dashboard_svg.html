@@ -1,5 +1,5 @@
-{# SVG panel only - no border, no title; loaded once to avoid blinking #}
-<div id="dashboard-svg-wrapper" class="min-w-0 w-full">
+{# SVG panel only - no border in light; subtle container in dark for consistency #}
+<div id="dashboard-svg-wrapper" class="min-w-0 w-full dark:rounded-xl dark:border dark:border-slate-600 dark:bg-slate-800 dark:p-2">
   <object
     id="dashboard-svg-object"
     data="{{ url_for('serve_dashboard', filename='GolgoharDashboard.svg') }}"

@@ -2,7 +2,7 @@
 {% if error %}
 <div id="dashboard-rest-container" hx-swap-oob="innerHTML">
   <script type="application/json" id="dashboard-tag-values">{{ tag_values | tojson }}</script>
-  <div class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-800 shadow-sm">
+  <div class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-800 shadow-sm dark:border-red-800 dark:bg-red-900/30 dark:text-red-200">
     <p class="font-medium">{{ error }}</p>
   </div>
 </div>
@@ -16,8 +16,8 @@
 {% else %}
 <div id="dashboard-rest-container" hx-swap-oob="innerHTML">
   <script type="application/json" id="dashboard-tag-values">{{ tag_values | tojson }}</script>
-  <div class="rounded-xl border border-slate-200 bg-slate-50 p-8 text-center">
-    <p class="text-slate-600">در حال انتظار برای شروع شبیه‌سازی...</p>
+  <div class="rounded-xl border border-slate-200 bg-slate-50 p-8 text-center dark:border-slate-600 dark:bg-slate-800">
+    <p class="text-slate-600 dark:text-slate-400">در حال انتظار برای شروع شبیه‌سازی...</p>
   </div>
 </div>
 {% endif %}

@@ -4,16 +4,46 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>داشبورد مانیتورینگ و پیش‌بینی DRAI</title>
+  <!-- Apply saved theme immediately to avoid flash -->
+  <script>
+    (function () {
+      var stored = localStorage.getItem('drai-theme');
+      var isDark = stored === null ? true : stored === 'dark';
+      if (isDark) document.documentElement.classList.add('dark');
+      else document.documentElement.classList.remove('dark');
+    })();
+  </script>
   <!-- HTMX for partial updates and control requests -->
   <script src="https://unpkg.com/htmx.org@1.9.10"></script>
   <!-- Local fallback: <script src="/static/vendor/htmx.min.js"></script> -->
   <script src="/static/vendor/tailwind.js"></script>
+  <script>
+    tailwind.config = { darkMode: 'class' };
+  </script>
   <script src="/static/vendor/alpine.min.js" defer></script>
+  <style>[x-cloak]{display:none !important}</style>
 </head>
-<body class="min-h-screen bg-slate-100 font-sans text-slate-800">
+<body class="min-h-screen bg-slate-100 font-sans text-slate-800 dark:bg-slate-900 dark:text-slate-200">
+  <!-- Theme toggle: subtle button, persisted in localStorage, default dark -->
+  <div class="fixed top-4 end-4 z-50" x-data="themeToggle()" x-init="init()">
+    <button
+      type="button"
+      @click="toggle()"
+      aria-label="تغییر تم (روشن / تاریک)"
+      class="rounded-lg p-2 text-slate-500 transition hover:bg-slate-200 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200 dark:focus:ring-slate-500 dark:focus:ring-offset-slate-900"
+    >
+      <span x-show="isDark" aria-hidden="true" class="inline-block h-5 w-5">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364 2.636l-1.591 1.591M21 12h-2.25m-2.236 2.236l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" /></svg>
+      </span>
+      <span x-show="!isDark" x-cloak aria-hidden="true" class="inline-block h-5 w-5">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" /></svg>
+      </span>
+    </button>
+  </div>
   <div
     id="app-root"
-    class="mx-auto max-w-7xl px-4 py-8"
+    class="mx-auto max-w-7xl px-4 pb-8"
+    :class="currentPage === 'monitoring' ? '' : 'pt-8'"
     x-data="uploadForm()"
     @simulation-started.window="simRunning = true; simPaused = false"
     @simulation-paused.window="simPaused = true"
@@ -21,15 +51,15 @@
     @simulation-reset.window="simRunning = false; simPaused = false"
   >
     <header class="mb-8 text-center" x-show="currentPage === 'upload'" x-transition>
-      <h1 class="text-3xl font-bold text-slate-800">داشبورد مانیتورینگ و پیش‌بینی DRAI</h1>
-      <p class="mt-2 text-slate-600">سیستم شبیه‌سازی آفلاین برای پردازش و پیش‌بینی داده‌های کوره</p>
-      <p class="mt-1 text-sm text-slate-500">می‌توانید چندین فایل CSV را به صورت دسته‌ای آپلود کنید</p>
+      <h1 class="text-3xl font-bold text-slate-800 dark:text-slate-100">داشبورد مانیتورینگ و پیش‌بینی DRAI</h1>
+      <p class="mt-2 text-slate-600 dark:text-slate-400">سیستم شبیه‌سازی آفلاین برای پردازش و پیش‌بینی داده‌های کوره</p>
+      <p class="mt-1 text-sm text-slate-500 dark:text-slate-500">می‌توانید چندین فایل CSV را به صورت دسته‌ای آپلود کنید</p>
     </header>
 
     <main class="space-y-6">
       <!-- Page 1: Upload & Preprocess -->
-      <section class="rounded-2xl border-2 border-slate-300 bg-white p-6 shadow-sm" x-show="currentPage === 'upload'" x-transition>
-        <h2 class="mb-4 text-xl font-semibold text-slate-800">آپلود فایل‌های CSV (دسته‌ای)</h2>
+      <section class="rounded-2xl border-2 border-slate-300 bg-white p-6 shadow-sm dark:border-slate-600 dark:bg-slate-800" x-show="currentPage === 'upload'" x-transition>
+        <h2 class="mb-4 text-xl font-semibold text-slate-800 dark:text-slate-100">آپلود فایل‌های CSV (دسته‌ای)</h2>
         <form
           id="upload-form"
           x-ref="uploadForm"
@@ -39,9 +69,9 @@
         >
           <!-- Process Tags Files -->
           <div>
-            <label class="mb-2 block text-sm font-medium text-slate-700">
+            <label class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
               فایل‌های Process Tags (داده‌های سنسورهای فرآیندی)
-              <span class="text-xs text-slate-500">(می‌توانید چندین فایل را انتخاب کنید)</span>
+              <span class="text-xs text-slate-500 dark:text-slate-400">(می‌توانید چندین فایل را انتخاب کنید)</span>
             </label>
             <input
               type="file"
@@ -50,18 +80,18 @@
               multiple
               x-ref="processFiles"
               @change="updateFileCount('process', $event)"
-              class="block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-slate-100 file:px-4 file:py-2 file:font-medium file:text-slate-700 hover:file:bg-slate-200"
+              class="block w-full text-sm text-slate-600 dark:text-slate-300 file:mr-4 file:rounded-lg file:border-0 file:bg-slate-100 file:px-4 file:py-2 file:font-medium file:text-slate-700 hover:file:bg-slate-200 dark:file:bg-slate-600 dark:file:text-slate-200 dark:hover:file:bg-slate-500"
             />
-            <p x-show="fileCounts.process > 0" class="mt-1 text-xs text-slate-500">
+            <p x-show="fileCounts.process > 0" class="mt-1 text-xs text-slate-500 dark:text-slate-400">
               <span x-text="fileCounts.process"></span> فایل انتخاب شده
             </p>
           </div>
 
           <!-- Pellet Data Files -->
           <div>
-            <label class="mb-2 block text-sm font-medium text-slate-700">
+            <label class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
               فایل‌های Pellet Data (داده‌های آزمایشگاهی ورودی گندله)
-              <span class="text-xs text-slate-500">(می‌توانید چندین فایل را انتخاب کنید)</span>
+              <span class="text-xs text-slate-500 dark:text-slate-400">(می‌توانید چندین فایل را انتخاب کنید)</span>
             </label>
             <input
               type="file"
@@ -70,18 +100,18 @@
               multiple
               x-ref="pelletFiles"
               @change="updateFileCount('pellet', $event)"
-              class="block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-slate-100 file:px-4 file:py-2 file:font-medium file:text-slate-700 hover:file:bg-slate-200"
+              class="block w-full text-sm text-slate-600 dark:text-slate-300 file:mr-4 file:rounded-lg file:border-0 file:bg-slate-100 file:px-4 file:py-2 file:font-medium file:text-slate-700 hover:file:bg-slate-200 dark:file:bg-slate-600 dark:file:text-slate-200 dark:hover:file:bg-slate-500"
             />
-            <p x-show="fileCounts.pellet > 0" class="mt-1 text-xs text-slate-500">
+            <p x-show="fileCounts.pellet > 0" class="mt-1 text-xs text-slate-500 dark:text-slate-400">
               <span x-text="fileCounts.pellet"></span> فایل انتخاب شده
             </p>
           </div>
 
           <!-- MD/Quality Data Files -->
           <div>
-            <label class="mb-2 block text-sm font-medium text-slate-700">
+            <label class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
               فایل‌های MD/Quality Data (داده‌های کیفی خروجی)
-              <span class="text-xs text-slate-500">(می‌توانید چندین فایل را انتخاب کنید)</span>
+              <span class="text-xs text-slate-500 dark:text-slate-400">(می‌توانید چندین فایل را انتخاب کنید)</span>
             </label>
             <input
               type="file"
@@ -90,41 +120,41 @@
               multiple
               x-ref="mdFiles"
               @change="updateFileCount('md', $event)"
-              class="block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-slate-100 file:px-4 file:py-2 file:font-medium file:text-slate-700 hover:file:bg-slate-200"
+              class="block w-full text-sm text-slate-600 dark:text-slate-300 file:mr-4 file:rounded-lg file:border-0 file:bg-slate-100 file:px-4 file:py-2 file:font-medium file:text-slate-700 hover:file:bg-slate-200 dark:file:bg-slate-600 dark:file:text-slate-200 dark:hover:file:bg-slate-500"
             />
-            <p x-show="fileCounts.md > 0" class="mt-1 text-xs text-slate-500">
+            <p x-show="fileCounts.md > 0" class="mt-1 text-xs text-slate-500 dark:text-slate-400">
               <span x-text="fileCounts.md"></span> فایل انتخاب شده
             </p>
           </div>
 
           <!-- Model frequency (1h, 15T, 30T) -->
           <div>
-            <label class="mb-2 block text-sm font-medium text-slate-700">
+            <label class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
               بازهٔ مدل پیش‌بینی (فرکانس)
             </label>
             <select
               name="model_frequency"
-              class="block w-full max-w-xs rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
+              class="block w-full max-w-xs rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:focus:border-slate-500 dark:focus:ring-slate-500"
             >
               <option value="30T">۳۰ دقیقه (30T)</option>
               <option value="15T">۱۵ دقیقه (15T)</option>
               <option value="1h">۱ ساعت (1h)</option>
             </select>
-            <p class="mt-1 text-xs text-slate-500">مدل‌های MD و C بر اساس همین بازه برای پیش‌بینی استفاده می‌شوند.</p>
+            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">مدل‌های MD و C بر اساس همین بازه برای پیش‌بینی استفاده می‌شوند.</p>
           </div>
 
           <!-- Preprocess Button -->
           <button
             type="submit"
             :disabled="uploading || !hasFiles()"
-            class="inline-flex items-center gap-2 rounded-xl bg-slate-800 px-6 py-3 font-medium text-white shadow-md transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 disabled:opacity-50"
+            class="inline-flex items-center gap-2 rounded-xl bg-slate-800 px-6 py-3 font-medium text-white shadow-md transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 disabled:opacity-50 dark:bg-slate-600 dark:hover:bg-slate-500 dark:focus:ring-offset-slate-800"
           >
             <span x-show="uploading" class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
             <span x-text="uploading ? 'در حال پیش‌پردازش...' : 'پیش‌پردازش'"></span>
           </button>
 
           <!-- Upload Status -->
-          <div x-show="uploadMessage" class="rounded-lg p-3" :class="uploadSuccess ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'">
+          <div x-show="uploadMessage" class="rounded-lg p-3" :class="uploadSuccess ? 'bg-green-50 text-green-800 dark:bg-green-900/30 dark:text-green-200' : 'bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-200'">
             <p x-text="uploadMessage"></p>
           </div>
         </form>
@@ -134,7 +164,7 @@
       <div x-show="currentPage === 'monitoring'" x-transition class="min-h-0">
         <div id="dashboard-svg-container" class="overflow-auto min-h-0" style="max-height: 85vh;"></div>
         <div id="dashboard-rest-container" class="mt-4 space-y-4">
-          <p class="text-center text-slate-500">در حال بارگذاری...</p>
+          <p class="text-center text-slate-500 dark:text-slate-400">در حال بارگذاری...</p>
         </div>
         <div id="dashboard-initial-trigger" hx-get="/update-dashboard" hx-trigger="load" hx-swap="none" class="contents" aria-hidden="true"></div>
         <div id="dashboard-poll-trigger" hx-get="/update-dashboard?partial=rest" hx-trigger="every 2s" hx-swap="innerHTML" hx-target="#dashboard-rest-container" class="contents" aria-hidden="true"></div>
@@ -143,6 +173,26 @@
   </div>
 
   <script>
+    // Theme toggle: default dark, persisted in localStorage
+    function themeToggle() {
+      return {
+        isDark: true,
+        init() {
+          this.isDark = document.documentElement.classList.contains('dark');
+        },
+        toggle() {
+          this.isDark = !this.isDark;
+          if (this.isDark) {
+            document.documentElement.classList.add('dark');
+            localStorage.setItem('drai-theme', 'dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+            localStorage.setItem('drai-theme', 'light');
+          }
+        }
+      };
+    }
+
     function uploadForm() {
       return {
         uploading: false,
