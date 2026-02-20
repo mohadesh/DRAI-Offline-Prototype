@@ -4,26 +4,26 @@
 </div>
 {% else %}
 <div class="space-y-4">
-  <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-slate-700 shadow-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300">
+  <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-slate-700 shadow-sm dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-300">
     <p class="font-medium">{{ stats.message }}</p>
-    <p class="mt-1 text-sm dark:text-slate-400">ردیف‌ها: {{ stats.rows }} — ستون‌ها: {{ stats.columns }}{% if stats.preview_rows %} (پیش‌نمایش {{ stats.preview_rows }} ردیف){% endif %}</p>
+    <p class="mt-1 text-sm dark:text-zinc-400">Rows: {{ stats.rows }} — Columns: {{ stats.columns }}{% if stats.preview_rows %} (preview {{ stats.preview_rows }} rows){% endif %}</p>
   </div>
   {% if preview_data %}
-  <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-600 dark:bg-slate-800">
+  <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-zinc-600 dark:bg-zinc-900">
     <div class="overflow-x-auto">
-      <table class="min-w-full divide-y divide-slate-200 text-left text-sm dark:divide-slate-600">
-        <thead class="bg-slate-100 dark:bg-slate-700">
+      <table class="min-w-full divide-y divide-slate-200 text-left text-sm dark:divide-zinc-600">
+        <thead class="bg-slate-100 dark:bg-zinc-700">
           <tr>
             {% for key in preview_data[0].keys() %}
-            <th class="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">{{ key }}</th>
+            <th class="px-4 py-3 font-semibold text-slate-700 dark:text-zinc-200">{{ key }}</th>
             {% endfor %}
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-100 dark:divide-slate-600">
+        <tbody class="divide-y divide-slate-100 dark:divide-zinc-600">
           {% for row in preview_data %}
-          <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
+          <tr class="hover:bg-slate-50 dark:hover:bg-zinc-700/50">
             {% for key, value in row.items() %}
-            <td class="px-4 py-2 text-slate-800 dark:text-slate-200">{{ value }}</td>
+            <td class="px-4 py-2 text-slate-800 dark:text-zinc-200">{{ value }}</td>
             {% endfor %}
           </tr>
           {% endfor %}
@@ -32,7 +32,7 @@
     </div>
   </div>
   {% else %}
-  <p class="text-slate-600 dark:text-slate-400">داده‌ای برای نمایش وجود ندارد.</p>
+  <p class="text-slate-600 dark:text-zinc-400">No data to display.</p>
   {% endif %}
 </div>
 {% endif %}

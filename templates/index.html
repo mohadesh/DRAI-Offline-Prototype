@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="fa" dir="rtl">
+<html lang="en" dir="ltr">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>داشبورد مانیتورینگ و پیش‌بینی DRAI</title>
+  <title>DRAI Monitoring and Prediction Dashboard</title>
   <!-- Apply saved theme immediately to avoid flash -->
   <script>
     (function () {
@@ -23,14 +23,14 @@
   <script src="/static/vendor/alpine.min.js" defer></script>
   <style>[x-cloak]{display:none !important}</style>
 </head>
-<body class="min-h-screen bg-slate-100 font-sans text-slate-800 dark:bg-slate-900 dark:text-slate-200">
+<body class="min-h-screen bg-slate-100 font-sans text-slate-800 dark:bg-zinc-900 dark:text-zinc-200">
   <!-- Theme toggle: subtle button, persisted in localStorage, default dark -->
-  <div class="fixed top-4 end-4 z-50" x-data="themeToggle()" x-init="init()">
+  <div class="fixed top-4 right-4 z-50" x-data="themeToggle()" x-init="init()">
     <button
       type="button"
       @click="toggle()"
-      aria-label="تغییر تم (روشن / تاریک)"
-      class="rounded-lg p-2 text-slate-500 transition hover:bg-slate-200 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200 dark:focus:ring-slate-500 dark:focus:ring-offset-slate-900"
+      aria-label="Toggle theme (light / dark)"
+      class="rounded-lg p-2 text-slate-500 transition hover:bg-slate-200 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-zinc-200 dark:focus:ring-zinc-500 dark:focus:ring-offset-zinc-950"
     >
       <span x-show="isDark" aria-hidden="true" class="inline-block h-5 w-5">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364 2.636l-1.591 1.591M21 12h-2.25m-2.236 2.236l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" /></svg>
@@ -51,15 +51,15 @@
     @simulation-reset.window="simRunning = false; simPaused = false"
   >
     <header class="mb-8 text-center" x-show="currentPage === 'upload'" x-transition>
-      <h1 class="text-3xl font-bold text-slate-800 dark:text-slate-100">داشبورد مانیتورینگ و پیش‌بینی DRAI</h1>
-      <p class="mt-2 text-slate-600 dark:text-slate-400">سیستم شبیه‌سازی آفلاین برای پردازش و پیش‌بینی داده‌های کوره</p>
-      <p class="mt-1 text-sm text-slate-500 dark:text-slate-500">می‌توانید چندین فایل CSV را به صورت دسته‌ای آپلود کنید</p>
+      <h1 class="text-3xl font-bold text-slate-800 dark:text-zinc-100">DRAI Monitoring and Prediction Dashboard</h1>
+      <p class="mt-2 text-slate-600 dark:text-zinc-400">Offline simulation system for furnace data processing and prediction</p>
+      <p class="mt-1 text-sm text-slate-500 dark:text-zinc-500">You can upload multiple CSV files in batch</p>
     </header>
 
     <main class="space-y-6">
       <!-- Page 1: Upload & Preprocess -->
-      <section class="rounded-2xl border-2 border-slate-300 bg-white p-6 shadow-sm dark:border-slate-600 dark:bg-slate-800" x-show="currentPage === 'upload'" x-transition>
-        <h2 class="mb-4 text-xl font-semibold text-slate-800 dark:text-slate-100">آپلود فایل‌های CSV (دسته‌ای)</h2>
+      <section class="rounded-2xl border-2 border-slate-300 bg-white p-6 shadow-sm dark:border-zinc-600 dark:bg-zinc-900" x-show="currentPage === 'upload'" x-transition>
+        <h2 class="mb-4 text-xl font-semibold text-slate-800 dark:text-zinc-100">CSV File Upload (Batch)</h2>
         <form
           id="upload-form"
           x-ref="uploadForm"
@@ -69,9 +69,9 @@
         >
           <!-- Process Tags Files -->
           <div>
-            <label class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-              فایل‌های Process Tags (داده‌های سنسورهای فرآیندی)
-              <span class="text-xs text-slate-500 dark:text-slate-400">(می‌توانید چندین فایل را انتخاب کنید)</span>
+            <label class="mb-2 block text-sm font-medium text-slate-700 dark:text-zinc-300">
+              Process Tags files (process sensor data)
+              <span class="text-xs text-slate-500 dark:text-zinc-400">(you can select multiple files)</span>
             </label>
             <input
               type="file"
@@ -80,18 +80,18 @@
               multiple
               x-ref="processFiles"
               @change="updateFileCount('process', $event)"
-              class="block w-full text-sm text-slate-600 dark:text-slate-300 file:mr-4 file:rounded-lg file:border-0 file:bg-slate-100 file:px-4 file:py-2 file:font-medium file:text-slate-700 hover:file:bg-slate-200 dark:file:bg-slate-600 dark:file:text-slate-200 dark:hover:file:bg-slate-500"
+              class="block w-full text-sm text-slate-600 dark:text-zinc-300 file:ml-4 file:rounded-lg file:border-0 file:bg-slate-100 file:px-4 file:py-2 file:font-medium file:text-slate-700 hover:file:bg-slate-200 dark:file:bg-zinc-600 dark:file:text-zinc-200 dark:hover:file:bg-zinc-500"
             />
-            <p x-show="fileCounts.process > 0" class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              <span x-text="fileCounts.process"></span> فایل انتخاب شده
+            <p x-show="fileCounts.process > 0" class="mt-1 text-xs text-slate-500 dark:text-zinc-400">
+              <span x-text="fileCounts.process"></span> file(s) selected
             </p>
           </div>
 
           <!-- Pellet Data Files -->
           <div>
-            <label class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-              فایل‌های Pellet Data (داده‌های آزمایشگاهی ورودی گندله)
-              <span class="text-xs text-slate-500 dark:text-slate-400">(می‌توانید چندین فایل را انتخاب کنید)</span>
+            <label class="mb-2 block text-sm font-medium text-slate-700 dark:text-zinc-300">
+              Pellet Data files (input pellet lab data)
+              <span class="text-xs text-slate-500 dark:text-zinc-400">(you can select multiple files)</span>
             </label>
             <input
               type="file"
@@ -100,18 +100,18 @@
               multiple
               x-ref="pelletFiles"
               @change="updateFileCount('pellet', $event)"
-              class="block w-full text-sm text-slate-600 dark:text-slate-300 file:mr-4 file:rounded-lg file:border-0 file:bg-slate-100 file:px-4 file:py-2 file:font-medium file:text-slate-700 hover:file:bg-slate-200 dark:file:bg-slate-600 dark:file:text-slate-200 dark:hover:file:bg-slate-500"
+              class="block w-full text-sm text-slate-600 dark:text-zinc-300 file:ml-4 file:rounded-lg file:border-0 file:bg-slate-100 file:px-4 file:py-2 file:font-medium file:text-slate-700 hover:file:bg-slate-200 dark:file:bg-zinc-600 dark:file:text-zinc-200 dark:hover:file:bg-zinc-500"
             />
-            <p x-show="fileCounts.pellet > 0" class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              <span x-text="fileCounts.pellet"></span> فایل انتخاب شده
+            <p x-show="fileCounts.pellet > 0" class="mt-1 text-xs text-slate-500 dark:text-zinc-400">
+              <span x-text="fileCounts.pellet"></span> file(s) selected
             </p>
           </div>
 
           <!-- MD/Quality Data Files -->
           <div>
-            <label class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-              فایل‌های MD/Quality Data (داده‌های کیفی خروجی)
-              <span class="text-xs text-slate-500 dark:text-slate-400">(می‌توانید چندین فایل را انتخاب کنید)</span>
+            <label class="mb-2 block text-sm font-medium text-slate-700 dark:text-zinc-300">
+              MD/Quality Data files (output quality data)
+              <span class="text-xs text-slate-500 dark:text-zinc-400">(you can select multiple files)</span>
             </label>
             <input
               type="file"
@@ -120,37 +120,37 @@
               multiple
               x-ref="mdFiles"
               @change="updateFileCount('md', $event)"
-              class="block w-full text-sm text-slate-600 dark:text-slate-300 file:mr-4 file:rounded-lg file:border-0 file:bg-slate-100 file:px-4 file:py-2 file:font-medium file:text-slate-700 hover:file:bg-slate-200 dark:file:bg-slate-600 dark:file:text-slate-200 dark:hover:file:bg-slate-500"
+              class="block w-full text-sm text-slate-600 dark:text-zinc-300 file:ml-4 file:rounded-lg file:border-0 file:bg-slate-100 file:px-4 file:py-2 file:font-medium file:text-slate-700 hover:file:bg-slate-200 dark:file:bg-zinc-600 dark:file:text-zinc-200 dark:hover:file:bg-zinc-500"
             />
-            <p x-show="fileCounts.md > 0" class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              <span x-text="fileCounts.md"></span> فایل انتخاب شده
+            <p x-show="fileCounts.md > 0" class="mt-1 text-xs text-slate-500 dark:text-zinc-400">
+              <span x-text="fileCounts.md"></span> file(s) selected
             </p>
           </div>
 
           <!-- Model frequency (1h, 15T, 30T) -->
           <div>
-            <label class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-              بازهٔ مدل پیش‌بینی (فرکانس)
+            <label class="mb-2 block text-sm font-medium text-slate-700 dark:text-zinc-300">
+              Prediction model interval (frequency)
             </label>
             <select
               name="model_frequency"
-              class="block w-full max-w-xs rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:focus:border-slate-500 dark:focus:ring-slate-500"
+              class="block w-full max-w-xs rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-200 dark:focus:border-zinc-500 dark:focus:ring-zinc-500"
             >
-              <option value="30T">۳۰ دقیقه (30T)</option>
-              <option value="15T">۱۵ دقیقه (15T)</option>
-              <option value="1h">۱ ساعت (1h)</option>
+              <option value="30T">30 minutes (30T)</option>
+              <option value="15T">15 minutes (15T)</option>
+              <option value="1h">1 hour (1h)</option>
             </select>
-            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">مدل‌های MD و C بر اساس همین بازه برای پیش‌بینی استفاده می‌شوند.</p>
+            <p class="mt-1 text-xs text-slate-500 dark:text-zinc-400">MD and C models use this interval for prediction.</p>
           </div>
 
           <!-- Preprocess Button -->
           <button
             type="submit"
             :disabled="uploading || !hasFiles()"
-            class="inline-flex items-center gap-2 rounded-xl bg-slate-800 px-6 py-3 font-medium text-white shadow-md transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 disabled:opacity-50 dark:bg-slate-600 dark:hover:bg-slate-500 dark:focus:ring-offset-slate-800"
+            class="inline-flex items-center gap-2 rounded-xl bg-slate-800 px-6 py-3 font-medium text-white shadow-md transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 disabled:opacity-50 dark:bg-zinc-600 dark:hover:bg-zinc-500 dark:focus:ring-offset-zinc-800"
           >
             <span x-show="uploading" class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-            <span x-text="uploading ? 'در حال پیش‌پردازش...' : 'پیش‌پردازش'"></span>
+            <span x-text="uploading ? 'Preprocessing...' : 'Preprocess'"></span>
           </button>
 
           <!-- Upload Status -->
@@ -164,7 +164,7 @@
       <div x-show="currentPage === 'monitoring'" x-transition class="min-h-0">
         <div id="dashboard-svg-container" class="overflow-auto min-h-0" style="max-height: 85vh;"></div>
         <div id="dashboard-rest-container" class="mt-4 space-y-4">
-          <p class="text-center text-slate-500 dark:text-slate-400">در حال بارگذاری...</p>
+          <p class="text-center text-slate-500 dark:text-zinc-400">Loading...</p>
         </div>
         <div id="dashboard-initial-trigger" hx-get="/update-dashboard" hx-trigger="load" hx-swap="none" class="contents" aria-hidden="true"></div>
         <div id="dashboard-poll-trigger" hx-get="/update-dashboard?partial=rest" hx-trigger="every 2s" hx-swap="innerHTML" hx-target="#dashboard-rest-container" class="contents" aria-hidden="true"></div>
@@ -227,21 +227,21 @@
           const mdFiles = this.$refs.mdFiles.files;
           
           if (processFiles.length === 0) {
-            this.uploadMessage = 'لطفاً حداقل یک فایل Process Tags انتخاب کنید.';
+            this.uploadMessage = 'Please select at least one Process Tags file.';
             this.uploadSuccess = false;
             this.uploading = false;
             return;
           }
           
           if (pelletFiles.length === 0) {
-            this.uploadMessage = 'لطفاً حداقل یک فایل Pellet انتخاب کنید.';
+            this.uploadMessage = 'Please select at least one Pellet file.';
             this.uploadSuccess = false;
             this.uploading = false;
             return;
           }
           
           if (mdFiles.length === 0) {
-            this.uploadMessage = 'لطفاً حداقل یک فایل MD/Quality انتخاب کنید.';
+            this.uploadMessage = 'Please select at least one MD/Quality file.';
             this.uploadSuccess = false;
             this.uploading = false;
             return;
@@ -291,11 +291,11 @@
                 }, 300);
               });
             } else {
-              this.uploadMessage = result.error || 'خطا در آپلود';
+              this.uploadMessage = result.error || 'Upload failed';
               this.uploadSuccess = false;
             }
           } catch (error) {
-            this.uploadMessage = 'خطا در ارتباط با سرور: ' + error.message;
+            this.uploadMessage = 'Server error: ' + error.message;
             this.uploadSuccess = false;
           } finally {
             this.uploading = false;
