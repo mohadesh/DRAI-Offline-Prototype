@@ -1,21 +1,26 @@
-
 # app.py
 import os
 import uuid
 import logging
 import socket
 import pickle
+import warnings
 from pathlib import Path
 from flask import Flask, render_template, request, jsonify, session
 import pandas as pd
 import jdatetime
 
+# --- تمیز کردن لاگ‌های ترمینال ---
+# نادیده گرفتن هشدارهای مربوط به نام فیچرهای LightGBM
+warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
+warnings.filterwarnings("ignore", message=".*X does not have valid feature names.*")
+# نادیده گرفتن هشدارهای مربوط به T و min در Pandas/Darts
+warnings.filterwarnings("ignore", category=FutureWarning, message=".*'T' is deprecated.*")
 
 # ماژول‌های داخلی
 import core_logic
 import simulation
 import model_loader
-
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 500 * 1024 * 1024
@@ -65,16 +70,16 @@ def get_cached_model(path):
     path_str = str(path)
     if path_str in MODEL_CACHE:
         return MODEL_CACHE[path_str]
-    
+
     try:
         # 1. تلاش برای لود کردن مدل از طریق core_logic (اگر تابعی وجود داشته باشد)
         model = core_logic.load_model(path_str) if hasattr(core_logic, 'load_model') else None
-        
+
         # 2. در غیر این صورت، استفاده از کتابخانه استاندارد pickle برای فایل‌های .pkl
         if model is None:
             with open(path_str, 'rb') as f:
                 model = pickle.load(f)
-            
+
         if model:
             MODEL_CACHE[path_str] = model
             logger.info(f"✅ Model cached successfully: {path.name}")
@@ -117,7 +122,7 @@ def upload():
             md_files=m_files,
             resample_rate=model_freq
         )
-        
+
         runner = simulation.SimulationRunner(result['merged_df'])
         _simulation_runners[sid] = runner
 
@@ -175,29 +180,21 @@ def update_dashboard():
 
     predictions = None
     if current_data:
-        # ---------------------------------------------------------
         # 1. FIX JALALI DATE EXPLICITLY IN BACKEND
-        # ---------------------------------------------------------
         if 'georgian_datetime' in current_data and pd.notnull(current_data['georgian_datetime']):
             try:
                 g_date = pd.to_datetime(current_data['georgian_datetime'])
                 j_date = jdatetime.datetime.fromgregorian(datetime=g_date)
-                # ساخت یک کلید مشخص برای فرانت‌اند
                 current_data['jalali_datetime_str'] = j_date.strftime("%Y-%m-%d %H:%M:%S")
             except Exception as e:
                 logger.error(f"Jalali conversion error: {e}")
 
-        # ---------------------------------------------------------
         # 2. DYNAMIC FREQUENCY & INFERENCE WINDOW
-        # ---------------------------------------------------------
         WINDOW_SIZE = 120 # Safe buffer (e.g. 10 hours of data)
-
         start_idx = max(0, runner.current_index - WINDOW_SIZE)
         end_idx = runner.current_index + 1
-
         df_window = runner.df.iloc[start_idx:end_idx].copy()
 
-        # گرفتن فرکانس انتخابی کاربر از سشن (15T, 30T, 1h)
         freq = session.get("model_frequency", DEFAULT_MODEL_FREQUENCY)
         md_path, c_path = get_model_paths_for_frequency(freq)
 
@@ -205,12 +202,11 @@ def update_dashboard():
         model_c = get_cached_model(c_path)
 
         if model_md or model_c:
-            # پاس دادن فرکانس داینامیک به core_logic
             predictions = core_logic.run_inference_for_md_c(
-                model_md, 
-                model_c, 
-                df_window, 
-                frequency=freq  # <--- فرکانس درست اینجا ارسال می‌شود
+                model_md,
+                model_c,
+                df_window,
+                frequency=freq
             )
 
     # Advance to next step
@@ -224,7 +220,6 @@ def update_dashboard():
         progress=progress,
         error=None
     )
-
 
 def find_free_port(start_port=8000, max_tries=100):
     for port in range(start_port, start_port + max_tries):
@@ -240,7 +235,7 @@ if __name__ == "__main__":
     try:
         # خاموش کردن لاگ‌های اضافی Werkzeug برای خوانایی بهتر ترمینال
         logging.getLogger('werkzeug').setLevel(logging.ERROR)
-        
+
         port = find_free_port()
         print(f"\n========================================")
         print(f" DRAI OFFLINE SERVER STARTED ")

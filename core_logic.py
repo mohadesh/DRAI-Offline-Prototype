@@ -20,11 +20,11 @@ UPLOADS_DIR.mkdir(exist_ok=True)
 
 # Limit lines printed from subprocess to avoid IDE buffer OOM
 MAX_LINES_LOGGED = 5000
-LINES_AFTER_CAP = 500  # After cap, log every N lines as progress
-LOG_STDERR_LINES = 200  # Max stderr lines to include in exception
+LINES_AFTER_CAP = 500
+LOG_STDERR_LINES = 200
 
 # =========================================================================
-# ویژگی‌های استخراج شده برای مدل (دقیقاً ۴۳ ستون)
+# ویژگی‌های استخراج شده برای مدل (پشتیبان در صورت عدم خواندن از فایل مدل)
 # =========================================================================
 PAST_COVARIATES_COLS = [
     "PELLET_CCS", "PELLET_%FeO", "INST_WTH15", "INST_AITC10", "INST_AITC09",
@@ -41,7 +41,6 @@ PAST_COVARIATES_COLS = [
 def run_script(script_name, args):
     """
     Run a Python script as a subprocess. Streams output with a line cap to avoid OOM.
-    Closes pipes properly; on failure raises a clear exception without crashing the parent.
     """
     script_path = BASE_DIR / script_name
     if not script_path.exists():
@@ -65,49 +64,39 @@ def run_script(script_name, args):
             cwd=str(BASE_DIR),
         )
 
-        lines_logged = [0]  # use list so inner function can mutate
+        lines_logged = [0]
         lines_skipped = [0]
         prefix = f"[{script_name}] "
 
         def read_stdout():
             try:
                 for line in iter(process.stdout.readline, ""):
-                    if not line:
-                        break
+                    if not line: break
                     line = line.rstrip()
                     if lines_logged[0] < MAX_LINES_LOGGED:
                         try:
                             print(prefix + line, flush=True)
-                        except (OSError, UnicodeEncodeError):
-                            pass
+                        except (OSError, UnicodeEncodeError): pass
                         lines_logged[0] += 1
                     else:
                         lines_skipped[0] += 1
                         if lines_skipped[0] % LINES_AFTER_CAP == 0:
                             try:
                                 print(prefix + f"... ({lines_skipped[0]} more lines suppressed)", flush=True)
-                            except (OSError, UnicodeEncodeError):
-                                pass
-            except (BrokenPipeError, OSError, ValueError):
-                pass
+                            except (OSError, UnicodeEncodeError): pass
+            except (BrokenPipeError, OSError, ValueError): pass
             finally:
-                try:
-                    process.stdout.close()
-                except Exception:
-                    pass
+                try: process.stdout.close()
+                except Exception: pass
 
         def read_stderr():
             try:
                 for line in iter(process.stderr.readline, ""):
-                    if line:
-                        stderr_lines.append(line.rstrip())
-            except (BrokenPipeError, OSError, ValueError):
-                pass
+                    if line: stderr_lines.append(line.rstrip())
+            except (BrokenPipeError, OSError, ValueError): pass
             finally:
-                try:
-                    process.stderr.close()
-                except Exception:
-                    pass
+                try: process.stderr.close()
+                except Exception: pass
 
         out_thread = threading.Thread(target=read_stdout, daemon=True)
         err_thread = threading.Thread(target=read_stderr, daemon=True)
@@ -119,42 +108,31 @@ def run_script(script_name, args):
 
         if returncode != 0:
             tail = "\n".join(stderr_lines[-LOG_STDERR_LINES:]) if stderr_lines else "(no stderr)"
-            raise RuntimeError(
-                f"{script_name} failed with exit code {returncode}. Stderr:\n{tail}"
-            )
+            raise RuntimeError(f"{script_name} failed with exit code {returncode}. Stderr:\n{tail}")
 
         if lines_skipped[0] > 0:
             logger.info("%s produced %d extra lines (not printed).", script_name, lines_skipped[0])
         logger.info("%s completed successfully.", script_name)
 
-    except FileNotFoundError:
-        raise
-    except RuntimeError:
-        raise
+    except FileNotFoundError: raise
+    except RuntimeError: raise
     except Exception as e:
         logger.exception("Error running %s", script_name)
         raise RuntimeError(f"Subprocess error running {script_name}: {e}") from e
     finally:
         if process is not None:
-            try:
-                process.stdout.close()
-            except Exception:
-                pass
-            try:
-                process.stderr.close()
-            except Exception:
-                pass
+            try: process.stdout.close()
+            except Exception: pass
+            try: process.stderr.close()
+            except Exception: pass
             try:
                 process.terminate()
                 process.wait(timeout=5)
             except Exception:
-                try:
-                    process.kill()
-                except Exception:
-                    pass
+                try: process.kill()
+                except Exception: pass
 
 def save_uploaded_files(files, folder):
-    """Save uploaded file objects to folder; return list of saved paths."""
     saved = []
     for f in files:
         if f and getattr(f, "filename", None):
@@ -163,14 +141,7 @@ def save_uploaded_files(files, folder):
             saved.append(str(path))
     return saved
 
-# =========================================================================
-# ===                           تغییرات اصلی اینجا هستند                         ===
-# =========================================================================
 def process_data(process_files, pellet_files, md_files, resample_rate="30T", model_md_path=None, model_c_path=None):
-    """
-    Main entry called by app.py. Runs ProcessTags -> Pellet -> MDnC -> merging.
-    Returns dict with success, merged_df, stats. Raises on failure.
-    """
     session_id = str(uuid.uuid4())
     session_dir = UPLOADS_DIR / session_id
     session_dir.mkdir(exist_ok=True)
@@ -188,7 +159,6 @@ def process_data(process_files, pellet_files, md_files, resample_rate="30T", mod
         output_md = session_dir / "MD_Cleaned.csv"
         output_merged = session_dir / "Merged_Final.csv"
 
-        # --- تغییر ۱: استفاده از resample_rate به جای مقدار ثابت
         run_script("ProcessTags.py", [
             "--input", process_paths[0],
             "--output", str(output_process),
@@ -198,8 +168,7 @@ def process_data(process_files, pellet_files, md_files, resample_rate="30T", mod
         run_script("Pellet.py", ["--input", pellet_paths[0], "--output", str(output_pellet)])
 
         run_script("MDnC.py", ["--input", md_paths[0], "--output", str(output_md)])
-        
-        # --- تغییر ۲: استفاده از resample_rate در اسکریپت merging
+
         run_script("merging.py", [
             "--process", str(output_process),
             "--pellet", str(output_pellet),
@@ -211,10 +180,9 @@ def process_data(process_files, pellet_files, md_files, resample_rate="30T", mod
         if not output_merged.exists():
             raise FileNotFoundError("Merged file was not created. Check script outputs above.")
 
-        # اطمینان از خواندن صحیح ستون تاریخ
         final_df = pd.read_csv(output_merged, parse_dates=['georgian_datetime'])
         logger.info("Session %s done. Rows: %d", session_id, len(final_df))
-        
+
         return {
             "success": True,
             "merged_df": final_df,
@@ -223,16 +191,13 @@ def process_data(process_files, pellet_files, md_files, resample_rate="30T", mod
 
     except Exception as e:
         logger.exception("Pipeline failed for session %s", session_id)
-        try:
-            shutil.rmtree(session_dir, ignore_errors=True)
-        except Exception:
-            pass
+        try: shutil.rmtree(session_dir, ignore_errors=True)
+        except Exception: pass
         raise e
 
 def run_inference_for_md_c(model_md, model_c, df_window, frequency="30T"):
     """
     Run Darts inference for MD and C. Returns dict with MD and C values or None on error.
-    Requires at least 24 rows in df_window due to model lags=-24.
     """
     try:
         from darts import TimeSeries
@@ -244,11 +209,10 @@ def run_inference_for_md_c(model_md, model_c, df_window, frequency="30T"):
         return {"MD": None, "C": None}
 
     df = df_window.copy()
-    
+
     # --- بررسی طول داده‌های ورودی ---
     REQUIRED_LAGS = 24
     if len(df) < REQUIRED_LAGS:
-        # جلوگیری از خطای Darts: متوقف کردن استنتاج تا زمانی که پنجره داده به 24 سطر برسد
         return {"MD": None, "C": None}
 
     if "georgian_datetime" in df.columns:
@@ -262,38 +226,42 @@ def run_inference_for_md_c(model_md, model_c, df_window, frequency="30T"):
     TARGET_C_COL = "MDNC_C"
     out = {"MD": None, "C": None}
 
-    # --- استخراج دقیق Covariateها برای رفع مشکل LightGBM Feature Names ---
-    # اگر PAST_COVARIATES_COLS به صورت سراسری تعریف شده باشد از آن استفاده می‌کند
-    if 'PAST_COVARIATES_COLS' in globals():
+    # جایگزینی T با min برای جلوگیری از هشدار FutureWarning دات‌فریم و دارتس
+    safe_freq = frequency.replace("T", "min")
+
+    # --- استخراج دقیق Covariateها (ابتدا از روی مدل، سپس از روی لیست پشتیبان) ---
+    expected_covs = None
+    active_model = model_md if model_md is not None else model_c
+    
+    if active_model is not None and hasattr(active_model, 'past_covariate_components'):
+        expected_covs = list(active_model.past_covariate_components)
+
+    if not expected_covs and 'PAST_COVARIATES_COLS' in globals():
         expected_covs = PAST_COVARIATES_COLS
-    else:
-        # به عنوان پشتیبان، ستون‌های عددی را برمی‌دارد
+
+    if not expected_covs:
         expected_covs = df.select_dtypes(include=['number']).columns.tolist()
         if TARGET_MD_COL in expected_covs: expected_covs.remove(TARGET_MD_COL)
         if TARGET_C_COL in expected_covs: expected_covs.remove(TARGET_C_COL)
 
-    # پد کردن ستون‌های از دست رفته با 0 برای جلوگیری از کرش کردن مدل
+    # پد کردن ستون‌های از دست رفته با 0
     for col in expected_covs:
         if col not in df.columns:
             df[col] = 0.0
-            
-    # استخراج دقیقاً همان ستون‌ها با همان ترتیب زمان آموزش
-    cov_df = df[list(expected_covs)].fillna(0)
 
-    # Helper function برای ساخت امن TimeSeries
+    cov_df = df[list(expected_covs)].fillna(0.0)
+
     def get_ts(data_df):
         try:
-            return TimeSeries.from_dataframe(data_df, freq=frequency)
-        except Exception as e:
-            # logger.warning(f"Could not enforce frequency '{frequency}': {e}")
+            return TimeSeries.from_dataframe(data_df, freq=safe_freq)
+        except Exception:
             return TimeSeries.from_dataframe(data_df)
 
     covariate_series = get_ts(cov_df)
 
-    # Helper function برای تولید target series
     def get_target_series(target_name):
         if target_name in df.columns:
-            ts_df = df[[target_name]].fillna(0)
+            ts_df = df[[target_name]].fillna(0.0)
         else:
             ts_df = pd.DataFrame({target_name: [0.0] * len(df)}, index=df.index)
         return get_ts(ts_df)
@@ -304,7 +272,6 @@ def run_inference_for_md_c(model_md, model_c, df_window, frequency="30T"):
             target_series_md = get_target_series(TARGET_MD_COL)
             pred = model_md.predict(n=1, series=target_series_md, past_covariates=covariate_series)
             val = float(pred.values().flatten()[0])
-            # اعمال محدودیت منطقی درصد (بین 0 تا 100) و رند کردن به 2 رقم اعشار
             out["MD"] = round(max(0.0, min(val, 100.0)), 2)
         except Exception as e:
             logger.error(f"MD prediction failed: {e}")
@@ -316,7 +283,6 @@ def run_inference_for_md_c(model_md, model_c, df_window, frequency="30T"):
             target_series_c = get_target_series(TARGET_C_COL)
             pred = model_c.predict(n=1, series=target_series_c, past_covariates=covariate_series)
             val = float(pred.values().flatten()[0])
-            # اعمال محدودیت منطقی کربن (بزرگتر از 0) و رند کردن
             out["C"] = round(max(0.0, val), 2)
         except Exception as e:
             logger.error(f"C prediction failed: {e}")
