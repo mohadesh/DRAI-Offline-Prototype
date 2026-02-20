@@ -87,14 +87,21 @@
     </div>
   </div>
 
-  <!-- Key Process Tags: only numeric values, exclude datetime/Unnamed/hours/str keys -->
+  <!-- Key Process Tags: only allowed tags (exact or suffix match), numeric values only -->
+  {% set allowed_process_tags = ['AITC10', 'AITC09', 'FTA22A36', 'TTA351', 'AITA321', 'AITA311', 'FTA33', 'FTA82', 'PDIA48', 'AITA331', 'TTA341', 'PTA45', 'WTH15', 'AITA18', 'TTA19', 'FTA19', 'MDNC_M_D', 'MDNC_C', 'Pellet_FeO', 'Pellet_CCS', 'TTA521', 'TTA522', 'TTA523', 'TTA524', 'TTA525', 'TTA526', 'TTA527', 'TTA528', 'TTA529', 'TTA5210'] %}
   <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
     <h3 class="mb-3 text-lg font-semibold text-slate-800">تگ‌های فرآیندی مهم</h3>
     <div class="grid grid-cols-2 gap-3 md:grid-cols-3">
       {% for key, value in current_data.items() %}
         {% set key_lower = key | lower %}
         {% set skip_key = 'datetime' in key_lower or 'time' in key_lower or 'unnamed' in key_lower or 'hours' in key_lower or 'str' in key_lower %}
-        {% if not skip_key and value is not none and value != '' and value is number %}
+        {% set ns = namespace(tag_allowed=false) %}
+        {% for tag in allowed_process_tags %}
+          {% if key == tag or (key | string).endswith(tag) %}
+            {% set ns.tag_allowed = true %}
+          {% endif %}
+        {% endfor %}
+        {% if ns.tag_allowed and not skip_key and value is not none and value != '' and value is number %}
           <div class="rounded-lg border border-slate-100 bg-slate-50 p-2">
             <p class="text-xs font-medium text-slate-600">{{ key }}</p>
             <p class="text-sm font-semibold text-slate-800">{{ "%.2f"|format(value | float) }}</p>
