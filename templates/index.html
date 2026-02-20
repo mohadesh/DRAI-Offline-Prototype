@@ -162,7 +162,7 @@
 
       <!-- Page 2: SVG loads once (no refresh); rest (controls, status, time, predictions) polls every 2s -->
       <div x-show="currentPage === 'monitoring'" x-transition class="min-h-0">
-        <div id="dashboard-svg-container" class="overflow-auto min-h-0" style="max-height: 85vh;"></div>
+        <div id="dashboard-svg-container" class="w-full"></div>
         <div id="dashboard-rest-container" class="mt-4 space-y-4">
           <p class="text-center text-slate-500 dark:text-zinc-400">Loading...</p>
         </div>
