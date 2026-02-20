@@ -290,11 +290,10 @@
               this.uploadSuccess = true;
               this.dataLoaded = true;
               this.currentPage = 'monitoring';
-              // Trigger initial dashboard load once the monitoring page is visible
+              // Fire load-svg so the SVG OOB container is populated for the first time
               this.$nextTick(() => {
                 setTimeout(() => {
-                  var el = document.getElementById('dashboard-initial-trigger');
-                  if (el) htmx.trigger(el, 'htmx:trigger');
+                  document.body.dispatchEvent(new Event('load-svg'));
                 }, 300);
               });
             } else {
