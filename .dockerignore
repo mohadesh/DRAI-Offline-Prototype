@@ -1,0 +1,49 @@
+# Version control
+.git/
+.gitignore
+
+# Python virtual environments
+venv/
+.venv/
+env/
+.env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Environment files (injected at runtime)
+.env
+.env.*
+!.env.example
+
+# User-uploaded data (mounted as volume in production)
+uploads/
+
+# Dev/debug artifacts
+*.log
+debug_inference.log
+Untitled/
+
+# IDE and OS files
+.cursor/
+.vscode/
+*.DS_Store
+Thumbs.db
+
+# Jupyter notebooks
+*.ipynb
+.ipynb_checkpoints/
+
+# Test files
+tests/
+test_*
+*_test.py
+
+# Documentation extras
+*.md
+!README.md
+راهنمای_مدل‌ها.md

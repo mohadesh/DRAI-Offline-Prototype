@@ -1,0 +1,41 @@
+# Local development docker-compose — no Traefik, port exposed directly.
+#
+# Usage:
+#   docker compose -f docker/docker-compose.dev.yml up --build
+
+services:
+  drai-offline:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: drai-offline:dev
+    container_name: drai-offline-dev
+    restart: unless-stopped
+
+    ports:
+      - "${DEV_PORT:-5000}:5000"
+
+    volumes:
+      # Live-reload source files without rebuilding (useful for template edits)
+      - ../templates:/app/templates
+      - ../static:/app/static
+      - ../dashboard:/app/dashboard
+      # Persist uploads across container restarts
+      - ../uploads:/app/uploads
+      # Use local model/analysis directories so changes are visible immediately
+      - ../models:/app/models
+      - ../analysis:/app/analysis
+
+    environment:
+      - APP_PORT=5000
+      - LOG_LEVEL=debug
+      - GUNICORN_WORKERS=1
+      - GUNICORN_THREADS=2
+      - SECRET_KEY=dev-secret-key-not-for-production
+
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:5000/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
