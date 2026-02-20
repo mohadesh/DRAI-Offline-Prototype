@@ -198,11 +198,15 @@ def update_dashboard():
     Endpoint for HTMX polling to get current simulation state.
     Sends a HISTORY WINDOW to the inference engine.
     """
+    tag_values_default = {t: "—" for t in ALLOWED_PROCESS_TAGS}
     if 'session_id' not in session:
         return render_template(
-            "partials/dashboard.html",
+            "partials/dashboard_full_oob.html",
             error="Session not found",
-            tag_values={t: "—" for t in ALLOWED_PROCESS_TAGS},
+            current_data=None,
+            predictions=None,
+            progress=None,
+            tag_values=tag_values_default,
         )
 
     session_id = session['session_id']
@@ -210,9 +214,12 @@ def update_dashboard():
 
     if runner is None:
         return render_template(
-            "partials/dashboard.html",
+            "partials/dashboard_full_oob.html",
             error="No data loaded",
-            tag_values={t: "—" for t in ALLOWED_PROCESS_TAGS},
+            current_data=None,
+            predictions=None,
+            progress=None,
+            tag_values=tag_values_default,
         )
 
     # Get current step data (for display)
@@ -255,14 +262,24 @@ def update_dashboard():
         runner.get_next_step()
 
     tag_values = _build_dashboard_tag_values(current_data)
+    partial_rest = request.args.get("partial") == "rest"
 
+    if partial_rest:
+        return render_template(
+            "partials/dashboard_rest.html",
+            current_data=current_data,
+            predictions=predictions,
+            progress=progress,
+            tag_values=tag_values,
+            error=None,
+        )
     return render_template(
-        "partials/dashboard.html",
+        "partials/dashboard_full_oob.html",
         current_data=current_data,
         predictions=predictions,
         progress=progress,
         tag_values=tag_values,
-        error=None
+        error=None,
     )
 
 def find_free_port(start_port=8000, max_tries=100):

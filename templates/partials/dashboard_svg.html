@@ -1,0 +1,12 @@
+{# SVG panel only - no border, no title; loaded once to avoid blinking #}
+<div id="dashboard-svg-wrapper" class="min-w-0 w-full">
+  <object
+    id="dashboard-svg-object"
+    data="{{ url_for('serve_dashboard', filename='GolgoharDashboard.svg') }}"
+    type="image/svg+xml"
+    class="w-full h-auto min-w-0 block"
+    style="max-height: 85vh;"
+    aria-label="داشبورد تگ‌های فرآیندی"
+  ></object>
+  <script type="application/json" id="dashboard-tag-values">{{ tag_values | tojson }}</script>
+</div>

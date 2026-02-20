@@ -1,0 +1,23 @@
+{# Full dashboard: two OOB fragments so SVG loads once and rest can be polled separately (avoids SVG blinking). #}
+{% if error %}
+<div id="dashboard-rest-container" hx-swap-oob="innerHTML">
+  <script type="application/json" id="dashboard-tag-values">{{ tag_values | tojson }}</script>
+  <div class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-800 shadow-sm">
+    <p class="font-medium">{{ error }}</p>
+  </div>
+</div>
+{% elif current_data %}
+<div id="dashboard-svg-container" hx-swap-oob="innerHTML">
+  {% include 'partials/dashboard_svg.html' %}
+</div>
+<div id="dashboard-rest-container" hx-swap-oob="innerHTML">
+  {% include 'partials/dashboard_rest.html' %}
+</div>
+{% else %}
+<div id="dashboard-rest-container" hx-swap-oob="innerHTML">
+  <script type="application/json" id="dashboard-tag-values">{{ tag_values | tojson }}</script>
+  <div class="rounded-xl border border-slate-200 bg-slate-50 p-8 text-center">
+    <p class="text-slate-600">در حال انتظار برای شروع شبیه‌سازی...</p>
+  </div>
+</div>
+{% endif %}

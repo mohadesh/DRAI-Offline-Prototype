@@ -20,15 +20,15 @@
     @simulation-resumed.window="simPaused = false"
     @simulation-reset.window="simRunning = false; simPaused = false"
   >
-    <header class="mb-8 text-center">
+    <header class="mb-8 text-center" x-show="currentPage === 'upload'" x-transition>
       <h1 class="text-3xl font-bold text-slate-800">داشبورد مانیتورینگ و پیش‌بینی DRAI</h1>
       <p class="mt-2 text-slate-600">سیستم شبیه‌سازی آفلاین برای پردازش و پیش‌بینی داده‌های کوره</p>
       <p class="mt-1 text-sm text-slate-500">می‌توانید چندین فایل CSV را به صورت دسته‌ای آپلود کنید</p>
     </header>
 
     <main class="space-y-6">
-      <!-- Upload Section -->
-      <section class="rounded-2xl border-2 border-slate-300 bg-white p-6 shadow-sm">
+      <!-- Page 1: Upload & Preprocess -->
+      <section class="rounded-2xl border-2 border-slate-300 bg-white p-6 shadow-sm" x-show="currentPage === 'upload'" x-transition>
         <h2 class="mb-4 text-xl font-semibold text-slate-800">آپلود فایل‌های CSV (دسته‌ای)</h2>
         <form
           id="upload-form"
@@ -113,14 +113,14 @@
             <p class="mt-1 text-xs text-slate-500">مدل‌های MD و C بر اساس همین بازه برای پیش‌بینی استفاده می‌شوند.</p>
           </div>
 
-          <!-- Upload Button -->
+          <!-- Preprocess Button -->
           <button
             type="submit"
             :disabled="uploading || !hasFiles()"
             class="inline-flex items-center gap-2 rounded-xl bg-slate-800 px-6 py-3 font-medium text-white shadow-md transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 disabled:opacity-50"
           >
             <span x-show="uploading" class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-            <span x-text="uploading ? 'در حال آپلود و پردازش...' : 'آپلود و پردازش'"></span>
+            <span x-text="uploading ? 'در حال پیش‌پردازش...' : 'پیش‌پردازش'"></span>
           </button>
 
           <!-- Upload Status -->
@@ -130,70 +130,15 @@
         </form>
       </section>
 
-      <!-- Simulation Controls: HTMX POST (no swap) + Alpine for UI state -->
-      <section class="rounded-2xl border-2 border-slate-300 bg-white p-6 shadow-sm" x-show="dataLoaded">
-        <h2 class="mb-4 text-xl font-semibold text-slate-800">کنترل شبیه‌سازی</h2>
-        <div class="flex flex-wrap gap-3">
-          <button
-            type="button"
-            hx-post="/simulation/start"
-            hx-swap="none"
-            hx-trigger="click"
-            hx-on::htmx:after-request="if(event.detail.successful){ window.dispatchEvent(new CustomEvent('simulation-started')); htmx.trigger('#dashboard-inner', 'htmx:trigger'); }"
-            :disabled="simRunning"
-            class="rounded-lg bg-green-600 px-4 py-2 font-medium text-white transition hover:bg-green-700 disabled:opacity-50"
-          >
-            شروع شبیه‌سازی
-          </button>
-          <button
-            type="button"
-            hx-post="/simulation/pause"
-            hx-swap="none"
-            hx-trigger="click"
-            hx-on::htmx:after-request="if(event.detail.successful){ window.dispatchEvent(new CustomEvent('simulation-paused')); htmx.trigger('#dashboard-inner', 'htmx:trigger'); }"
-            :disabled="!simRunning"
-            class="rounded-lg bg-yellow-600 px-4 py-2 font-medium text-white transition hover:bg-yellow-700 disabled:opacity-50"
-          >
-            توقف موقت
-          </button>
-          <button
-            type="button"
-            hx-post="/simulation/resume"
-            hx-swap="none"
-            hx-trigger="click"
-            hx-on::htmx:after-request="if(event.detail.successful){ window.dispatchEvent(new CustomEvent('simulation-resumed')); htmx.trigger('#dashboard-inner', 'htmx:trigger'); }"
-            :disabled="!simPaused"
-            class="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
-          >
-            ادامه
-          </button>
-          <button
-            type="button"
-            hx-post="/simulation/reset"
-            hx-swap="none"
-            hx-trigger="click"
-            hx-on::htmx:after-request="if(event.detail.successful){ window.dispatchEvent(new CustomEvent('simulation-reset')); htmx.trigger('#dashboard-inner', 'htmx:trigger'); }"
-            class="rounded-lg bg-red-600 px-4 py-2 font-medium text-white transition hover:bg-red-700"
-          >
-            بازنشانی
-          </button>
+      <!-- Page 2: SVG loads once (no refresh); rest (controls, status, time, predictions) polls every 2s -->
+      <div x-show="currentPage === 'monitoring'" x-transition class="min-h-0">
+        <div id="dashboard-svg-container" class="overflow-auto min-h-0" style="max-height: 85vh;"></div>
+        <div id="dashboard-rest-container" class="mt-4 space-y-4">
+          <p class="text-center text-slate-500">در حال بارگذاری...</p>
         </div>
-      </section>
-
-      <!-- Dashboard: auto-update every 2s and on load -->
-      <section class="rounded-2xl border-2 border-slate-300 bg-white p-6 shadow-sm" x-show="dataLoaded">
-        <h2 class="mb-4 text-xl font-semibold text-slate-800">داشبورد مانیتورینگ</h2>
-        <div
-          id="dashboard-inner"
-          hx-get="/update-dashboard"
-          hx-trigger="load, every 2s"
-          hx-swap="innerHTML"
-        >
-          <div class="text-center text-slate-500">
-            <p>در حال بارگذاری...</p>
-          </div>
-        </div>
-      </section>
+        <div id="dashboard-initial-trigger" hx-get="/update-dashboard" hx-trigger="load" hx-swap="none" class="contents" aria-hidden="true"></div>
+        <div id="dashboard-poll-trigger" hx-get="/update-dashboard?partial=rest" hx-trigger="every 2s" hx-swap="innerHTML" hx-target="#dashboard-rest-container" class="contents" aria-hidden="true"></div>
+      </div>
     </main>
   </div>
 
@@ -204,6 +149,7 @@
         uploadMessage: '',
         uploadSuccess: false,
         dataLoaded: false,
+        currentPage: 'upload', // 'upload' | 'monitoring'
         simRunning: false,
         simPaused: false,
         fileCounts: {
@@ -286,11 +232,14 @@
               this.uploadMessage = result.message;
               this.uploadSuccess = true;
               this.dataLoaded = true;
-              
-              // Trigger initial dashboard load
-              setTimeout(() => {
-                htmx.trigger('#dashboard-inner', 'htmx:trigger');
-              }, 500);
+              this.currentPage = 'monitoring';
+              // Trigger initial dashboard load once the monitoring page is visible
+              this.$nextTick(() => {
+                setTimeout(() => {
+                  var el = document.getElementById('dashboard-initial-trigger');
+                  if (el) htmx.trigger(el, 'htmx:trigger');
+                }, 300);
+              });
             } else {
               this.uploadMessage = result.error || 'خطا در آپلود';
               this.uploadSuccess = false;
@@ -358,16 +307,15 @@
       };
     }
   </script>
-  <!-- Apply dashboard SVG tag values after HTMX swaps the dashboard fragment (scripts in swapped content do not run) -->
+  <!-- Apply dashboard SVG tag values: after rest swap (poll) or when SVG is in page (find tag values in rest or svg container) -->
   <script>
-    document.body.addEventListener('htmx:afterSettle', function(ev) {
-      var target = ev.detail && ev.detail.target;
-      if (!target || target.id !== 'dashboard-inner') return;
-      var wrapper = target.querySelector('#dashboard-svg-wrapper');
-      if (!wrapper) return;
-      var obj = wrapper.querySelector('#dashboard-svg-object');
-      var dataEl = wrapper.querySelector('#dashboard-tag-values');
-      if (!obj || !dataEl) return;
+    function applyDashboardTagValues() {
+      var obj = document.getElementById('dashboard-svg-object');
+      if (!obj) return;
+      var dataEl = document.getElementById('dashboard-rest-container');
+      if (dataEl) dataEl = dataEl.querySelector('#dashboard-tag-values');
+      if (!dataEl) dataEl = document.querySelector('#dashboard-svg-container #dashboard-tag-values');
+      if (!dataEl) return;
       var data = {};
       try { data = JSON.parse(dataEl.textContent); } catch (e) { return; }
       function apply() {
@@ -385,7 +333,8 @@
       }
       obj.addEventListener('load', apply);
       if (obj.contentDocument) apply();
-    });
+    }
+    document.body.addEventListener('htmx:afterSettle', function() { applyDashboardTagValues(); });
   </script>
 </body>
 </html>
