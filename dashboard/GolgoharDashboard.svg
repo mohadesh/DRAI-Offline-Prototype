@@ -24,8 +24,8 @@
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
      inkscape:zoom="0.44646705"
-     inkscape:cx="1635.0591"
-     inkscape:cy="604.74788"
+     inkscape:cx="1446.9153"
+     inkscape:cy="725.69745"
      inkscape:window-width="1512"
      inkscape:window-height="845"
      inkscape:window-x="0"
@@ -2785,7 +2785,8 @@
          style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:37.3333px;line-height:0.9;font-family:'Kode Mono';-inkscape-font-specification:'Kode Mono Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;text-align:end;writing-mode:lr-tb;direction:ltr;text-anchor:end;display:inline;fill:#f9f9f9;fill-opacity:1;stroke:none"
          x="926.48419"
          y="425.49823"
-         id="val__MDNC_C-8"><tspan
+         id="val__MDNC_C-8"
+         inkscape:label="val__predicted-c"><tspan
            x="926.48419"
            y="425.49823"
            id="tspan28-1">00.00</tspan></text></g></g></svg>
