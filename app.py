@@ -10,15 +10,9 @@ from pathlib import Path
 from flask import Flask, render_template, request, jsonify, session, send_from_directory
 import pandas as pd
 import jdatetime
+from dotenv import load_dotenv
 
-# Load .env from project root if present (simple key=value, no dependencies needed)
-_env_file = Path(__file__).resolve().parent / ".env"
-if _env_file.exists():
-    for _line in _env_file.read_text(encoding="utf-8").splitlines():
-        _line = _line.strip()
-        if _line and not _line.startswith("#") and "=" in _line:
-            _k, _, _v = _line.partition("=")
-            os.environ.setdefault(_k.strip(), _v.strip())
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
 # --- تمیز کردن لاگ‌های ترمینال ---
 # نادیده گرفتن هشدارهای مربوط به نام فیچرهای LightGBM
@@ -87,11 +81,11 @@ def _simulated_predictions(current_data):
                     pass
         return None
 
-    def _noisy(value, lo, hi, max_val):
+    def _noisy(value, lo, max_val, pct_lo, pct_hi):
         if value is None:
             return None
-        sign = random.choice((-1, 1))
-        pct  = random.uniform(0.05, 0.15)          # 5–15 %
+        sign   = random.choice((-1, 1))
+        pct    = random.uniform(pct_lo, pct_hi)
         result = value * (1 + sign * pct)
         return round(min(max(result, lo), max_val), 2)
 
@@ -99,8 +93,8 @@ def _simulated_predictions(current_data):
     c_raw  = _get_tag(current_data, "MDNC_C")
 
     return {
-        "MD": _noisy(md_raw, 0.0, _MD_MAX, _MD_MAX),
-        "C":  _noisy(c_raw,  _C_MIN, _C_MAX, _C_MAX),
+        "MD": _noisy(md_raw, 0.0, _MD_MAX, 0.03, 0.07),   # MD: ±3–7 %
+        "C":  _noisy(c_raw,  _C_MIN, _C_MAX, 0.05, 0.20), # C:  ±5–20 %
     }
 
 # تنظیمات فرکانس

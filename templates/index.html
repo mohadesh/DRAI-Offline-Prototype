@@ -173,7 +173,7 @@
         <div id="dashboard-rest-container" class="mt-4 space-y-4">
           <p class="text-center text-slate-500 dark:text-zinc-400">Loading...</p>
         </div>
-        <div id="dashboard-initial-trigger" hx-get="/update-dashboard" hx-trigger="load" hx-swap="none" class="contents" aria-hidden="true"></div>
+        <div id="dashboard-initial-trigger" hx-get="/update-dashboard" hx-trigger="load-svg from:body" hx-swap="none" class="contents" aria-hidden="true"></div>
         <div id="dashboard-poll-trigger" hx-get="/update-dashboard?partial=rest" hx-trigger="every 2s" hx-swap="innerHTML" hx-target="#dashboard-rest-container" class="contents" aria-hidden="true"></div>
       </div>
     </main>
