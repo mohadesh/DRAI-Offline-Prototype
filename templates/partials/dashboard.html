@@ -91,42 +91,6 @@
     {% endif %}
   </div>
 
-  <!-- 4. Current Timestamp: Jalali and Georgian side by side -->
-  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-zinc-600 dark:bg-zinc-900">
-    <h3 class="mb-2 text-lg font-semibold text-slate-800 dark:text-zinc-100">Current time</h3>
-    <div class="flex flex-wrap items-baseline gap-x-6 gap-y-1">
-      <div class="flex items-baseline gap-2">
-        <span class="text-sm text-slate-600 dark:text-zinc-400">Jalali (Shamsi):</span>
-        <span class="text-lg font-mono text-slate-800 dark:text-zinc-200">{{ current_data.get('enter_jalali_datetime_str') or current_data.get('jalali_datetime_str') or current_data.get('georgian_datetime') or 'Unknown' }}</span>
-      </div>
-      <div class="flex items-baseline gap-2">
-        <span class="text-sm text-slate-600 dark:text-zinc-400">Gregorian:</span>
-        <span class="text-lg font-mono text-slate-700 dark:text-zinc-300">{{ current_data.get('georgian_datetime') or 'Unknown' }}</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- 5. Predictions -->
-  <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-zinc-600 dark:bg-zinc-900">
-      <h3 class="mb-2 text-lg font-semibold text-slate-800 dark:text-zinc-100">MD prediction</h3>
-      {% if predictions and predictions.MD is not none %}
-      <p class="text-3xl font-bold text-blue-600 dark:text-blue-400">{{ "%.2f"|format(predictions.MD) }}</p>
-      <p class="mt-1 text-sm text-slate-600 dark:text-zinc-400">percent</p>
-      {% else %}
-      <p class="text-slate-500 dark:text-zinc-400">Model not available</p>
-      {% endif %}
-    </div>
-    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-zinc-600 dark:bg-zinc-900">
-      <h3 class="mb-2 text-lg font-semibold text-slate-800 dark:text-zinc-100">C prediction</h3>
-      {% if predictions and predictions.C is not none %}
-      <p class="text-3xl font-bold text-purple-600 dark:text-purple-400">{{ "%.2f"|format(predictions.C) }}</p>
-      <p class="mt-1 text-sm text-slate-600 dark:text-zinc-400">percent</p>
-      {% else %}
-      <p class="text-slate-500 dark:text-zinc-400">Model not available</p>
-      {% endif %}
-    </div>
-  </div>
 </div>
 {% else %}
 <div class="rounded-xl border border-slate-200 bg-slate-50 p-8 text-center dark:border-zinc-600 dark:bg-zinc-900">
