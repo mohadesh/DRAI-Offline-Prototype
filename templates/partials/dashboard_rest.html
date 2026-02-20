@@ -1,14 +1,14 @@
 {# Rest of dashboard: controls, status, time, predictions. Includes tag_values so SVG text can be updated without reloading SVG. #}
 <script type="application/json" id="dashboard-tag-values">{{ tag_values | tojson }}</script>
 {% if error %}
-<div class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-800 shadow-sm">
+<div class="rounded-xl border border-red-200 bg-red-50 p-4 text-red-800 shadow-sm dark:border-red-800 dark:bg-red-900/30 dark:text-red-200">
   <p class="font-medium">{{ error }}</p>
 </div>
 {% elif current_data %}
 <div class="space-y-4">
   <!-- Simulation control buttons -->
-  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-    <h3 class="mb-3 text-lg font-semibold text-slate-800">کنترل شبیه‌سازی</h3>
+  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-600 dark:bg-slate-800">
+    <h3 class="mb-3 text-lg font-semibold text-slate-800 dark:text-slate-100">کنترل شبیه‌سازی</h3>
     <div class="flex flex-wrap gap-3">
       <button
         type="button"
@@ -17,7 +17,7 @@
         hx-trigger="click"
         hx-on::htmx:after-request="if(event.detail.successful){ window.dispatchEvent(new CustomEvent('simulation-started')); htmx.trigger('#dashboard-poll-trigger', 'htmx:trigger'); }"
         :disabled="simRunning"
-        class="rounded-lg bg-green-600 px-4 py-2 font-medium text-white transition hover:bg-green-700 disabled:opacity-50"
+        class="rounded-lg bg-green-600 px-4 py-2 font-medium text-white transition hover:bg-green-700 disabled:opacity-50 dark:bg-green-700 dark:hover:bg-green-600"
       >
         شروع شبیه‌سازی
       </button>
@@ -28,7 +28,7 @@
         hx-trigger="click"
         hx-on::htmx:after-request="if(event.detail.successful){ window.dispatchEvent(new CustomEvent('simulation-paused')); htmx.trigger('#dashboard-poll-trigger', 'htmx:trigger'); }"
         :disabled="!simRunning"
-        class="rounded-lg bg-yellow-600 px-4 py-2 font-medium text-white transition hover:bg-yellow-700 disabled:opacity-50"
+        class="rounded-lg bg-yellow-600 px-4 py-2 font-medium text-white transition hover:bg-yellow-700 disabled:opacity-50 dark:bg-yellow-700 dark:hover:bg-yellow-600"
       >
         توقف موقت
       </button>
@@ -39,7 +39,7 @@
         hx-trigger="click"
         hx-on::htmx:after-request="if(event.detail.successful){ window.dispatchEvent(new CustomEvent('simulation-resumed')); htmx.trigger('#dashboard-poll-trigger', 'htmx:trigger'); }"
         :disabled="!simPaused"
-        class="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
+        class="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700 disabled:opacity-50 dark:bg-blue-700 dark:hover:bg-blue-600"
       >
         ادامه
       </button>
@@ -49,7 +49,7 @@
         hx-swap="none"
         hx-trigger="click"
         hx-on::htmx:after-request="if(event.detail.successful){ window.dispatchEvent(new CustomEvent('simulation-reset')); htmx.trigger('#dashboard-poll-trigger', 'htmx:trigger'); }"
-        class="rounded-lg bg-red-600 px-4 py-2 font-medium text-white transition hover:bg-red-700"
+        class="rounded-lg bg-red-600 px-4 py-2 font-medium text-white transition hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600"
       >
         بازنشانی
       </button>
@@ -57,10 +57,10 @@
   </div>
 
   <!-- Status and Progress Bar -->
-  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-600 dark:bg-slate-800">
     <div class="mb-2 flex items-center justify-between">
-      <h3 class="text-lg font-semibold text-slate-800">وضعیت سیستم</h3>
-      <span class="rounded-full px-3 py-1 text-sm font-medium {% if current_data.status == 'Normal' %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+      <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-100">وضعیت سیستم</h3>
+      <span class="rounded-full px-3 py-1 text-sm font-medium {% if current_data.status == 'Normal' %}bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200{% else %}bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200{% endif %}">
         {{ current_data.status if current_data.status else 'نامشخص' }}
       </span>
     </div>
@@ -69,56 +69,56 @@
     {% set prog_total = progress.total | default(progress.total_rows) %}
     {% set prog_percent = progress.percent | default(progress.progress_percent) %}
     <div class="mt-2">
-      <div class="mb-1 flex justify-between text-sm text-slate-600">
+      <div class="mb-1 flex justify-between text-sm text-slate-600 dark:text-slate-400">
         <span>پیشرفت: {{ prog_current }} / {{ prog_total }}</span>
         <span>{{ prog_percent }}%</span>
       </div>
-      <div class="h-2 w-full overflow-hidden rounded-full bg-slate-200">
-        <div class="h-full bg-blue-600 transition-all duration-300" style="width: {{ prog_percent }}%"></div>
+      <div class="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-600">
+        <div class="h-full bg-blue-600 transition-all duration-300 dark:bg-blue-500" style="width: {{ prog_percent }}%"></div>
       </div>
     </div>
     {% endif %}
   </div>
 
   <!-- Current Timestamp: Jalali and Georgian side by side -->
-  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-    <h3 class="mb-2 text-lg font-semibold text-slate-800">زمان فعلی</h3>
+  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-600 dark:bg-slate-800">
+    <h3 class="mb-2 text-lg font-semibold text-slate-800 dark:text-slate-100">زمان فعلی</h3>
     <div class="flex flex-wrap items-baseline gap-x-6 gap-y-1">
       <div class="flex items-baseline gap-2">
-        <span class="text-sm text-slate-600">شمسی (جلالی):</span>
-        <span class="text-lg font-mono text-slate-800">{{ current_data.get('enter_jalali_datetime_str') or current_data.get('jalali_datetime_str') or current_data.get('georgian_datetime') or 'نامشخص' }}</span>
+        <span class="text-sm text-slate-600 dark:text-slate-400">شمسی (جلالی):</span>
+        <span class="text-lg font-mono text-slate-800 dark:text-slate-200">{{ current_data.get('enter_jalali_datetime_str') or current_data.get('jalali_datetime_str') or current_data.get('georgian_datetime') or 'نامشخص' }}</span>
       </div>
       <div class="flex items-baseline gap-2">
-        <span class="text-sm text-slate-600">میلادی:</span>
-        <span class="text-lg font-mono text-slate-700">{{ current_data.get('georgian_datetime') or 'نامشخص' }}</span>
+        <span class="text-sm text-slate-600 dark:text-slate-400">میلادی:</span>
+        <span class="text-lg font-mono text-slate-700 dark:text-slate-300">{{ current_data.get('georgian_datetime') or 'نامشخص' }}</span>
       </div>
     </div>
   </div>
 
   <!-- Predictions -->
   <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <h3 class="mb-2 text-lg font-semibold text-slate-800">پیش‌بینی MD</h3>
+    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-600 dark:bg-slate-800">
+      <h3 class="mb-2 text-lg font-semibold text-slate-800 dark:text-slate-100">پیش‌بینی MD</h3>
       {% if predictions and predictions.MD is not none %}
-      <p class="text-3xl font-bold text-blue-600">{{ "%.2f"|format(predictions.MD) }}</p>
-      <p class="mt-1 text-sm text-slate-600">درصد</p>
+      <p class="text-3xl font-bold text-blue-600 dark:text-blue-400">{{ "%.2f"|format(predictions.MD) }}</p>
+      <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">درصد</p>
       {% else %}
-      <p class="text-slate-500">مدل در دسترس نیست</p>
+      <p class="text-slate-500 dark:text-slate-400">مدل در دسترس نیست</p>
       {% endif %}
     </div>
-    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <h3 class="mb-2 text-lg font-semibold text-slate-800">پیش‌بینی C</h3>
+    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-600 dark:bg-slate-800">
+      <h3 class="mb-2 text-lg font-semibold text-slate-800 dark:text-slate-100">پیش‌بینی C</h3>
       {% if predictions and predictions.C is not none %}
-      <p class="text-3xl font-bold text-purple-600">{{ "%.2f"|format(predictions.C) }}</p>
-      <p class="mt-1 text-sm text-slate-600">درصد</p>
+      <p class="text-3xl font-bold text-purple-600 dark:text-purple-400">{{ "%.2f"|format(predictions.C) }}</p>
+      <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">درصد</p>
       {% else %}
-      <p class="text-slate-500">مدل در دسترس نیست</p>
+      <p class="text-slate-500 dark:text-slate-400">مدل در دسترس نیست</p>
       {% endif %}
     </div>
   </div>
 </div>
 {% else %}
-<div class="rounded-xl border border-slate-200 bg-slate-50 p-8 text-center">
-  <p class="text-slate-600">در حال انتظار برای شروع شبیه‌سازی...</p>
+<div class="rounded-xl border border-slate-200 bg-slate-50 p-8 text-center dark:border-slate-600 dark:bg-slate-800">
+  <p class="text-slate-600 dark:text-slate-400">در حال انتظار برای شروع شبیه‌سازی...</p>
 </div>
 {% endif %}
