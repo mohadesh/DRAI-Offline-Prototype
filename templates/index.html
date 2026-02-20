@@ -367,7 +367,9 @@
   <!-- Apply dashboard SVG tag values directly (SVG is inline in the same document) -->
   <script>
     function applyDashboardTagValues() {
-      var dataEl = document.querySelector('#dashboard-tag-values');
+      // Always prefer the rest-container version (updated every poll)
+      var dataEl = document.querySelector('#dashboard-rest-container #dashboard-tag-values');
+      if (!dataEl) dataEl = document.querySelector('#dashboard-tag-values');
       if (!dataEl) return;
       var data = {};
       try { data = JSON.parse(dataEl.textContent); } catch (e) { return; }
