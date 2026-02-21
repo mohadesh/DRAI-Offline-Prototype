@@ -1,4 +1,4 @@
-# core_logic.py — Orchestrates pipeline scripts. Safe subprocess execution to avoid OOM/crash.
+# core_logic.py
 import os
 import sys
 import uuid
@@ -11,6 +11,7 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 
+# Configure standard logging (INFO level for production)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
@@ -18,23 +19,12 @@ BASE_DIR = Path(__file__).resolve().parent
 UPLOADS_DIR = BASE_DIR / "uploads"
 UPLOADS_DIR.mkdir(exist_ok=True)
 
-# ---- Debug FileHandler: persist all debug logs to a dedicated file ----
-_debug_fh = logging.FileHandler(BASE_DIR / "debug_inference.log", mode="a", encoding="utf-8")
-_debug_fh.setLevel(logging.DEBUG)
-_debug_fh.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
-logger.addHandler(_debug_fh)
-logger.setLevel(logging.DEBUG)
-
-_MODEL_INPUT_EXPORTED = False
-
-# Limit lines printed from subprocess to avoid IDE buffer OOM
+# Subprocess logging limits to prevent memory overflow
 MAX_LINES_LOGGED = 5000
 LINES_AFTER_CAP = 500
 LOG_STDERR_LINES = 200
 
-# =========================================================================
-# Extracted features for the model (fallback in case of failure to read from the model file)
-# =========================================================================
+# Full list of 43 features expected by the model
 PAST_COVARIATES_COLS = [
     "PELLET_CCS", "PELLET_%FeO", "INST_WTH15", "INST_AITC10", "INST_AITC09",
     "INST_AITA331", "INST_AITA321", "INST_AITA311", "INST_AITA18", "INST_FTA19",
@@ -47,16 +37,25 @@ PAST_COVARIATES_COLS = [
     "INST_DELTA_T_DIFF", "INST_FLOW_VAR_6H", "INST_BPR_SLOPE", "INST_BUSTLE_TEMP_RATE"
 ]
 
+# The 4 specific features that do not have corresponding scalers
+UNSCALED_FEATURES = [
+    "INST_DELTA_T_DIFF", 
+    "INST_FLOW_VAR_6H", 
+    "INST_BPR_SLOPE", 
+    "INST_BUSTLE_TEMP_RATE"
+]
+
 def run_script(script_name, args):
     """
-    Run a Python script as a subprocess. Streams output with a line cap to avoid OOM.
+    Run a Python script as a subprocess. 
+    Streams output with a line cap to avoid OOM issues in production.
     """
     script_path = BASE_DIR / script_name
     if not script_path.exists():
         raise FileNotFoundError(f"Script not found: {script_path}")
 
     command = [sys.executable, str(script_path)] + [str(a) for a in args]
-    logger.info("Running %s (args: %s)", script_name, args[:6])
+    logger.info("Running %s", script_name)
 
     process = None
     stderr_lines = []
@@ -83,29 +82,18 @@ def run_script(script_name, args):
                     if not line: break
                     line = line.rstrip()
                     if lines_logged[0] < MAX_LINES_LOGGED:
-                        try:
-                            print(prefix + line, flush=True)
-                        except (OSError, UnicodeEncodeError): pass
+                        try: print(prefix + line, flush=True)
+                        except: pass
                         lines_logged[0] += 1
                     else:
                         lines_skipped[0] += 1
-                        if lines_skipped[0] % LINES_AFTER_CAP == 0:
-                            try:
-                                print(prefix + f"... ({lines_skipped[0]} more lines suppressed)", flush=True)
-                            except (OSError, UnicodeEncodeError): pass
-            except (BrokenPipeError, OSError, ValueError): pass
-            finally:
-                try: process.stdout.close()
-                except Exception: pass
+            except: pass
 
         def read_stderr():
             try:
                 for line in iter(process.stderr.readline, ""):
                     if line: stderr_lines.append(line.rstrip())
-            except (BrokenPipeError, OSError, ValueError): pass
-            finally:
-                try: process.stderr.close()
-                except Exception: pass
+            except: pass
 
         out_thread = threading.Thread(target=read_stdout, daemon=True)
         err_thread = threading.Thread(target=read_stderr, daemon=True)
@@ -119,27 +107,9 @@ def run_script(script_name, args):
             tail = "\n".join(stderr_lines[-LOG_STDERR_LINES:]) if stderr_lines else "(no stderr)"
             raise RuntimeError(f"{script_name} failed with exit code {returncode}. Stderr:\n{tail}")
 
-        if lines_skipped[0] > 0:
-            logger.info("%s produced %d extra lines (not printed).", script_name, lines_skipped[0])
-        logger.info("%s completed successfully.", script_name)
-
-    except FileNotFoundError: raise
-    except RuntimeError: raise
     except Exception as e:
         logger.exception("Error running %s", script_name)
-        raise RuntimeError(f"Subprocess error running {script_name}: {e}") from e
-    finally:
-        if process is not None:
-            try: process.stdout.close()
-            except Exception: pass
-            try: process.stderr.close()
-            except Exception: pass
-            try:
-                process.terminate()
-                process.wait(timeout=5)
-            except Exception:
-                try: process.kill()
-                except Exception: pass
+        raise RuntimeError(f"Subprocess error: {e}") from e
 
 def save_uploaded_files(files, folder):
     saved = []
@@ -151,6 +121,9 @@ def save_uploaded_files(files, folder):
     return saved
 
 def process_data(process_files, pellet_files, md_files, resample_rate="30T", model_md_path=None, model_c_path=None):
+    """
+    Handles the uploaded files, runs preprocessing scripts, and creates the merged dataset.
+    """
     session_id = str(uuid.uuid4())
     session_dir = UPLOADS_DIR / session_id
     session_dir.mkdir(exist_ok=True)
@@ -160,239 +133,189 @@ def process_data(process_files, pellet_files, md_files, resample_rate="30T", mod
         process_paths = save_uploaded_files(process_files, session_dir)
         pellet_paths = save_uploaded_files(pellet_files, session_dir)
         md_paths = save_uploaded_files(md_files, session_dir)
-        if not process_paths or not pellet_paths or not md_paths:
-            raise ValueError("Missing one or more required input files.")
 
         output_process = session_dir / "Process_Cleaned.csv"
         output_pellet = session_dir / "Pellet_Cleaned.csv"
         output_md = session_dir / "MD_Cleaned.csv"
         output_merged = session_dir / "Merged_Final.csv"
 
-        run_script("ProcessTags.py", [
-            "--input", process_paths[0],
-            "--output", str(output_process),
-            "--resample-rate", resample_rate,
-        ])
-
+        run_script("ProcessTags.py", ["--input", process_paths[0], "--output", str(output_process), "--resample-rate", resample_rate])
         run_script("Pellet.py", ["--input", pellet_paths[0], "--output", str(output_pellet)])
-
         run_script("MDnC.py", ["--input", md_paths[0], "--output", str(output_md)])
-
-        run_script("merging.py", [
-            "--process", str(output_process),
-            "--pellet", str(output_pellet),
-            "--md", str(output_md),
-            "--output", str(output_merged),
-            "--rate", resample_rate,
-        ])
-
-        if not output_merged.exists():
-            raise FileNotFoundError("Merged file was not created. Check script outputs above.")
+        run_script("merging.py", ["--process", str(output_process), "--pellet", str(output_pellet), "--md", str(output_md), "--output", str(output_merged), "--rate", resample_rate])
 
         final_df = pd.read_csv(output_merged, parse_dates=['georgian_datetime'])
-        logger.info("Session %s done. Rows: %d", session_id, len(final_df))
-
-        # ---- DEBUG STEP 1: Inspect merged data ----
-        logger.debug(
-            "DEBUG_01 | final_df shape: %s | columns: %s",
-            final_df.shape, list(final_df.columns),
-        )
-        missing_counts = final_df.isnull().sum()
-        cols_with_missing = missing_counts[missing_counts > 0]
-        if cols_with_missing.empty:
-            logger.debug("DEBUG_01 | No missing values in final_df.")
-        else:
-            logger.debug(
-                "DEBUG_01 | Columns with missing values:\n%s", cols_with_missing.to_string(),
-            )
-        try:
-            debug_csv_path = UPLOADS_DIR / "DEBUG_01_merged_sample.csv"
-            final_df.head(500).to_csv(debug_csv_path, index=False)
-            logger.debug("DEBUG_01 | Exported first 500 rows -> %s", debug_csv_path)
-        except Exception as exc:
-            logger.warning("DEBUG_01 | Failed to export merged sample: %s", exc)
-
-        return {
-            "success": True,
-            "merged_df": final_df,
-            "stats": {"rows": len(final_df), "columns": list(final_df.columns)},
-        }
+        return {"success": True, "merged_df": final_df, "stats": {"rows": len(final_df), "columns": list(final_df.columns)}}
 
     except Exception as e:
-        logger.exception("Pipeline failed for session %s", session_id)
-        try: shutil.rmtree(session_dir, ignore_errors=True)
-        except Exception: pass
+        logger.exception("Pipeline failed")
         raise e
 
 def run_inference_for_md_c(model_md, model_c, df_window, frequency="30T"):
     """
-    Run Darts inference for MD and C. Returns dict with MD and C values or None on error.
+    Runs inference for MD and C models. Scales the input correctly and handles dynamic scalers.
     """
+    import joblib
+    import pandas as pd
+    
     try:
         from darts import TimeSeries
     except ImportError:
         logger.warning("darts not installed; inference skipped.")
         return {"MD": None, "C": None}
 
-    if df_window is None or (hasattr(df_window, "empty") and df_window.empty):
+    if df_window is None or df_window.empty:
         return {"MD": None, "C": None}
 
     df = df_window.copy()
-
-    # --- Check length of input data ---
-    REQUIRED_LAGS = 24
-    if len(df) < REQUIRED_LAGS:
+    
+    # Check minimum required lags for inference
+    if len(df) < 24:
         return {"MD": None, "C": None}
 
     if "georgian_datetime" in df.columns:
         df["georgian_datetime"] = pd.to_datetime(df["georgian_datetime"], errors="coerce")
         df = df.set_index("georgian_datetime")
-    else:
-        logger.warning("Inference skipped: 'georgian_datetime' not in window.")
-        return {"MD": None, "C": None}
 
     TARGET_MD_COL = "MDNC_M_D"
     TARGET_C_COL = "MDNC_C"
     out = {"MD": None, "C": None}
-
-    # Replace 'T' with 'min' to avoid pandas/darts FutureWarning
-    safe_freq = frequency.replace("T", "min")
-
-    # =========================================================================
-    # FEATURE ENGINEERING (Translating raw tags to model-expected features)
-    # Added to prevent critical values from becoming zero
-    # =========================================================================
-    # 1. Map main temperatures
-    if "INST_ROOFTEMP" in df.columns:
-        df["INST_TEMP_UPPER"] = df["INST_ROOFTEMP"]
     
-    if "INST_TTA525" in df.columns: # TTA525 is assumed as Middle Temp
-        df["INST_TEMP_MIDDLE"] = df["INST_TTA525"]
-        
-    if "INST_FLOORTEMP" in df.columns:
-        df["INST_TEMP_LOWER"] = df["INST_FLOORTEMP"]
+    # Standardize frequency string for Darts compatibility
+    safe_freq = frequency.replace("T", "min").replace("H", "h")
 
-    # 2. Calculate Deltas
-    if "INST_TEMP_UPPER" in df.columns and "INST_TEMP_MIDDLE" in df.columns:
-        df["INST_DELTA_T1"] = df["INST_TEMP_UPPER"] - df["INST_TEMP_MIDDLE"]
-        
-    if "INST_TEMP_MIDDLE" in df.columns and "INST_TEMP_LOWER" in df.columns:
-        df["INST_DELTA_T2"] = df["INST_TEMP_MIDDLE"] - df["INST_TEMP_LOWER"]
-        
-    if "INST_DELTA_T1" in df.columns and "INST_DELTA_T2" in df.columns:
-        df["INST_DELTA_T_DIFF"] = df["INST_DELTA_T1"] - df["INST_DELTA_T2"]
-
-    # 3. Calculate time-based features (Rolling / Rate)
-    # Assuming 30T timeframe. 12 records = 6 hours.
+    # Load required scalers
+    scalers_dir = BASE_DIR / "scalers"
     try:
-        # Gas flow variance over the last 6 hours
-        if "INST_FTB061" in df.columns: 
-            df["INST_FLOW_VAR_6H"] = df["INST_FTB061"].rolling(window=12, min_periods=1).var().fillna(0.0)
-            
-        # Bustle Pressure slope
-        if "INST_PTB081" in df.columns: 
-            df["INST_BPR_SLOPE"] = df["INST_PTB081"].diff().fillna(0.0)
-            
-        # Bustle Temp rate of change
-        if "INST_TTA801" in df.columns: 
-            df["INST_BUSTLE_TEMP_RATE"] = df["INST_TTA801"].diff().fillna(0.0)
+        scaler_inst = joblib.load(scalers_dir / f"scaler_inst_{frequency}.pkl")
+        scaler_pellet = joblib.load(scalers_dir / f"scaler_pellet_{frequency}.pkl")
+        scaler_target = joblib.load(scalers_dir / f"scaler_target_{frequency}.pkl")
     except Exception as e:
-        logger.warning("Feature Engineering Error (Rolling features): %s", e)
-    # =========================================================================
+        logger.error(f"Failed to load scalers: {e}")
+        return {"MD": None, "C": None}
 
-    # --- Exact extraction of Covariates (first from model, then from fallback list) ---
-    expected_covs = None
+    # Extract required covariates (Priority: Model components -> Default list)
     active_model = model_md if model_md is not None else model_c
+    if active_model is not None and hasattr(active_model, 'past_covariate_components') and active_model.past_covariate_components is not None:
+        model_covs = list(active_model.past_covariate_components)
+    else:
+        model_covs = PAST_COVARIATES_COLS
 
-    if active_model is not None and hasattr(active_model, 'past_covariate_components'):
-        expected_covs = list(active_model.past_covariate_components)
-
-    if not expected_covs and 'PAST_COVARIATES_COLS' in globals():
-        expected_covs = PAST_COVARIATES_COLS
-
-    if not expected_covs:
-        expected_covs = df.select_dtypes(include=['number']).columns.tolist()
-        if TARGET_MD_COL in expected_covs: expected_covs.remove(TARGET_MD_COL)
-        if TARGET_C_COL in expected_covs: expected_covs.remove(TARGET_C_COL)
-
-    # Pad missing columns with 0.0
-    for col in expected_covs:
+    # Pad missing columns with zero
+    for col in model_covs:
         if col not in df.columns:
             df[col] = 0.0
 
-    cov_df = df[list(expected_covs)].fillna(0.0)
+    cov_df = df[model_covs].fillna(0.0).copy()
 
-    def get_ts(data_df):
-        try:
-            return TimeSeries.from_dataframe(data_df, freq=safe_freq)
-        except Exception:
-            return TimeSeries.from_dataframe(data_df)
+    # Segregate columns for scaling
+    pellet_cols = [c for c in model_covs if c.startswith('PELLET_')]
+    inst_cols_to_scale = [c for c in model_covs if c.startswith('INST_') and c not in UNSCALED_FEATURES]
 
-    # ---- DEBUG STEP 2: Inspect exact model input ----
-    global _MODEL_INPUT_EXPORTED
+    logger.info(f"Model needs {len(model_covs)} cols total. Scalers will transform: {len(inst_cols_to_scale)} INST, {len(pellet_cols)} PELLET.")
+
     try:
-        zero_cols = [c for c in cov_df.columns if (cov_df[c] == 0.0).all()]
-        if zero_cols:
-            logger.debug(
-                "DEBUG_02 | %d columns are ENTIRELY zeros (suspicious): %s",
-                len(zero_cols), zero_cols,
-            )
-        else:
-            logger.debug("DEBUG_02 | No entirely-zero columns detected in cov_df.")
+        # Scale INST features
+        if len(inst_cols_to_scale) > 0:
+            ts_inst = TimeSeries.from_dataframe(cov_df[inst_cols_to_scale], freq=safe_freq)
+            scaled_ts_inst = scaler_inst.transform(ts_inst)
+            cov_df[inst_cols_to_scale] = scaled_ts_inst.values()
 
-        critical_features = ["PELLET_CCS", "INST_TEMP_UPPER", "INST_WTH15"]
-        for feat in critical_features:
-            if feat in cov_df.columns:
-                logger.debug(
-                    "DEBUG_02 | %s  ->  min=%.4f  max=%.4f  mean=%.4f",
-                    feat, cov_df[feat].min(), cov_df[feat].max(), cov_df[feat].mean(),
-                )
+        # Scale PELLET features
+        if len(pellet_cols) > 0:
+            ts_pellet = TimeSeries.from_dataframe(cov_df[pellet_cols], freq=safe_freq)
+            scaled_ts_pellet = scaler_pellet.transform(ts_pellet)
+            cov_df[pellet_cols] = scaled_ts_pellet.values()
+            
+        # Reconstruct final covariate series
+        covariate_series = TimeSeries.from_dataframe(cov_df[model_covs], freq=safe_freq)
+    except Exception as e:
+        logger.error(f"Failed to transform input covariates: {e}")
+        return {"MD": None, "C": None}
+
+    def inverse_transform_target(pred_ts, is_md=True):
+        """
+        Robustly reverse-scales the prediction output by trying multiple scaler formats.
+        """
+        col_name = TARGET_MD_COL if is_md else TARGET_C_COL
+        pred_val = float(pred_ts.values()[-1][0])
+
+        # 1. Extract the actual scaler if the loaded object is a dictionary
+        actual_scaler = scaler_target
+        if isinstance(scaler_target, dict):
+            if col_name in scaler_target:
+                actual_scaler = scaler_target[col_name]
+            elif is_md and "M_D" in scaler_target:
+                actual_scaler = scaler_target["M_D"]
+            elif not is_md and "C" in scaler_target:
+                actual_scaler = scaler_target["C"]
             else:
-                logger.debug("DEBUG_02 | %s  ->  NOT PRESENT in cov_df", feat)
+                # Fallback to the first available value in the dictionary
+                actual_scaler = list(scaler_target.values())[0] if scaler_target else None
 
-        if not _MODEL_INPUT_EXPORTED:
-            debug_input_path = UPLOADS_DIR / "DEBUG_02_model_input_features.csv"
-            cov_df.to_csv(debug_input_path)
-            logger.debug("DEBUG_02 | Exported cov_df (%s) -> %s", cov_df.shape, debug_input_path)
-            _MODEL_INPUT_EXPORTED = True
-    except Exception as exc:
-        logger.warning("DEBUG_02 | Logging failed (non-fatal): %s", exc)
+        if actual_scaler is None:
+            return pred_val
 
-    covariate_series = get_ts(cov_df)
+        # 2. First attempt: Direct Darts TimeSeries inversion
+        try:
+            inv = actual_scaler.inverse_transform(pred_ts)
+            return float(inv.values()[-1][0])
+        except:
+            pass
+
+        # 3. Second attempt: Create a 2-column dummy TimeSeries (if scaler expects both)
+        try:
+            dummy_df = pd.DataFrame(0.0, index=pred_ts.time_index, columns=[TARGET_MD_COL, TARGET_C_COL])
+            dummy_df[col_name] = pred_val
+            dummy_ts = TimeSeries.from_dataframe(dummy_df, freq=safe_freq)
+            inv = actual_scaler.inverse_transform(dummy_ts)
+            col_idx = 0 if is_md else 1
+            return float(inv.values()[-1][col_idx])
+        except:
+            pass
+
+        # 4. Third attempt: Scikit-Learn 1D array
+        try:
+            arr = np.array([[pred_val]])
+            inv = actual_scaler.inverse_transform(arr)
+            return float(inv[0][0])
+        except:
+            pass
+
+        # 5. Fourth attempt: Scikit-Learn 2D array
+        try:
+            arr = np.zeros((1, 2))
+            col_idx = 0 if is_md else 1
+            arr[0, col_idx] = pred_val
+            inv = actual_scaler.inverse_transform(arr)
+            return float(inv[0][col_idx])
+        except Exception as e:
+            logger.error(f"All inverse transform attempts failed: {e}")
+            return pred_val  # Return the scaled value rather than crashing
 
     def get_target_series(target_name):
-        if target_name in df.columns:
-            ts_df = df[[target_name]].fillna(0.0)
-        else:
-            ts_df = pd.DataFrame({target_name: [0.0] * len(df)}, index=df.index)
-        return get_ts(ts_df)
+        ts_df = df[[target_name]].fillna(0.0) if target_name in df.columns else pd.DataFrame({target_name: [0.0] * len(df)}, index=df.index)
+        try: return TimeSeries.from_dataframe(ts_df, freq=safe_freq)
+        except: return TimeSeries.from_dataframe(ts_df)
 
-    # --- MD Inference ---
+    # Execute MD Inference
     if model_md is not None:
         try:
             target_series_md = get_target_series(TARGET_MD_COL)
-            pred = model_md.predict(n=1, series=target_series_md, past_covariates=covariate_series)
-            val = float(pred.values().flatten()[0])
-            # ---- DEBUG STEP 3: Raw MD output ----
-            logger.debug("DEBUG_03 | MD raw prediction value: %.6f", val)
-            out["MD"] = round(max(0.0, min(val, 100.0)), 2)
-            logger.debug("DEBUG_03 | MD after clamping: %s", out["MD"])
+            pred_md_scaled = model_md.predict(n=1, series=target_series_md, past_covariates=covariate_series)
+            real_md = inverse_transform_target(pred_md_scaled, is_md=True)
+            if real_md is not None: out["MD"] = round(real_md, 2)
         except Exception as e:
             logger.error(f"MD prediction failed: {e}")
-            out["MD"] = None
 
-    # --- C Inference ---
+    # Execute C Inference
     if model_c is not None:
         try:
             target_series_c = get_target_series(TARGET_C_COL)
-            pred = model_c.predict(n=1, series=target_series_c, past_covariates=covariate_series)
-            val = float(pred.values().flatten()[0])
-            # ---- DEBUG STEP 3: Raw C output ----
-            logger.debug("DEBUG_03 | C raw prediction value: %.6f", val)
-            out["C"] = round(max(0.0, val), 2)
-            logger.debug("DEBUG_03 | C after clamping: %s", out["C"])
+            pred_c_scaled = model_c.predict(n=1, series=target_series_c, past_covariates=covariate_series)
+            real_c = inverse_transform_target(pred_c_scaled, is_md=False)
+            if real_c is not None: out["C"] = round(real_c, 2)
         except Exception as e:
             logger.error(f"C prediction failed: {e}")
-            out["C"] = None
 
     return out
