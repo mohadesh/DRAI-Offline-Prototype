@@ -5,17 +5,17 @@
     <p class="mt-0.5 text-xs text-slate-500 dark:text-zinc-400">ML predictions vs. laboratory data — sliding 17-point window (past 8, current, future 8)</p>
   </div>
 
-  {# KPI Cards — Past window MAE #}
+  {# KPI Cards — Future horizon MAE (h1..h8) #}
   <div class="grid grid-cols-1 gap-3 px-4 py-3 sm:grid-cols-2">
     <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 dark:border-zinc-600 dark:bg-zinc-800">
       <p class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-zinc-400">MD (Metallization) Overall MAE</p>
       <p id="kpi-md-mae" class="mt-1 text-2xl font-bold tabular-nums text-slate-800 dark:text-zinc-100">—</p>
-      <p class="text-xs text-slate-500 dark:text-zinc-400">Past window (t−8 to t)</p>
+      <p class="text-xs text-slate-500 dark:text-zinc-400">Future window (h1 to h8)</p>
     </div>
     <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 dark:border-zinc-600 dark:bg-zinc-800">
       <p class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-zinc-400">Carbon Overall MAE</p>
       <p id="kpi-c-mae" class="mt-1 text-2xl font-bold tabular-nums text-slate-800 dark:text-zinc-100">—</p>
-      <p class="text-xs text-slate-500 dark:text-zinc-400">Past window (t−8 to t)</p>
+      <p class="text-xs text-slate-500 dark:text-zinc-400">Future window (h1 to h8)</p>
     </div>
   </div>
 
@@ -109,7 +109,7 @@
       ],
       chart: Object.assign({}, baseChart.chart, { height: 280, group: 'md-group', animations: { enabled: true } }),
       stroke: { curve: 'straight', width: 2 },
-      markers: { size: [0, 5] },
+      markers: { size: [5, 5], strokeWidth: 0, hover: { sizeOffset: 2 } },
       grid: baseChart.grid,
       xaxis: baseChart.xaxis,
       yaxis: { min: 85, max: 100, labels: { style: { colors: textColor } }, title: { text: 'MD (%)', style: { color: textColor } } },
@@ -133,14 +133,21 @@
     });
     chartMdMain.render();
 
-    // MD Error — bars only for past 8 + current (indices 0–8). Indices 9–16 (future) stay null = "waiting for future data".
+    // MD Error — bars only for future 8 steps (h1..h8, indices 9–16). |Actual − Predicted|.
     chartMdError = new ApexCharts(document.querySelector('#chart-md-error'), {
       series: [{ name: 'Abs Error', type: 'column', data: [], color: '#64748b' }],
       chart: Object.assign({}, baseChart.chart, { height: 120, group: 'md-group', animations: { enabled: true } }),
       plotOptions: { bar: { columnWidth: '70%', distributed: false } },
       grid: baseChart.grid,
       xaxis: baseChart.xaxis,
-      yaxis: { min: 0, labels: { style: { colors: textColor } }, title: { text: '|Actual − Predicted|', style: { color: textColor } } },
+      yaxis: {
+        min: 0,
+        labels: {
+          style: { colors: textColor },
+          formatter: function(value) { return value != null && !isNaN(value) ? Number(value).toFixed(3) : ''; }
+        },
+        title: { text: '|Actual − Predicted|', style: { color: textColor } }
+      },
       legend: { show: false },
       tooltip: {
         theme: isDark ? 'dark' : 'light',
@@ -151,7 +158,7 @@
           var hor = horizonLabel(i);
           var actual = row && row.actual_md != null ? Number(row.actual_md).toFixed(2) : '—';
           var pred = row && row.pred_md != null ? Number(row.pred_md).toFixed(2) : '—';
-          var err = (row && row.actual_md != null && row.pred_md != null) ? Math.abs(row.actual_md - row.pred_md).toFixed(2) : '—';
+          var err = (row && row.actual_md != null && row.pred_md != null) ? Math.abs(row.actual_md - row.pred_md).toFixed(3) : '—';
           return '<div class="apex-tooltip apex-custom" style="padding:8px 12px;background:' + tooltipBg + ';border:1px solid ' + tooltipBorder + ';border-radius:6px;font-size:12px;color:' + textColor + '">Time: ' + time + (hor ? ' | Horizon: ' + hor : '') + ' | Actual: ' + actual + ' | Predicted: ' + pred + ' | Abs Error: ' + err + '</div>';
         }
       }
@@ -166,7 +173,7 @@
       ],
       chart: Object.assign({}, baseChart.chart, { height: 280, group: 'c-group', animations: { enabled: true } }),
       stroke: { curve: 'straight', width: 2 },
-      markers: { size: [0, 5] },
+      markers: { size: [5, 5], strokeWidth: 0, hover: { sizeOffset: 2 } },
       grid: baseChart.grid,
       xaxis: baseChart.xaxis,
       yaxis: { min: 0, max: 5, labels: { style: { colors: textColor } }, title: { text: 'C (%)', style: { color: textColor } } },
@@ -189,14 +196,21 @@
     });
     chartCMain.render();
 
-    // C Error — bars only for past 8 + current (indices 0–8). Indices 9–16 (future) stay null.
+    // C Error — bars only for future 8 steps (h1..h8, indices 9–16).
     chartCError = new ApexCharts(document.querySelector('#chart-c-error'), {
       series: [{ name: 'Abs Error', type: 'column', data: [], color: '#64748b' }],
       chart: Object.assign({}, baseChart.chart, { height: 120, group: 'c-group', animations: { enabled: true } }),
       plotOptions: { bar: { columnWidth: '70%' } },
       grid: baseChart.grid,
       xaxis: baseChart.xaxis,
-      yaxis: { min: 0, labels: { style: { colors: textColor } }, title: { text: '|Actual − Predicted|', style: { color: textColor } } },
+      yaxis: {
+        min: 0,
+        labels: {
+          style: { colors: textColor },
+          formatter: function(value) { return value != null && !isNaN(value) ? Number(value).toFixed(3) : ''; }
+        },
+        title: { text: '|Actual − Predicted|', style: { color: textColor } }
+      },
       legend: { show: false },
       tooltip: {
         theme: isDark ? 'dark' : 'light',
@@ -207,7 +221,7 @@
           var hor = horizonLabel(i);
           var actual = row && row.actual_c != null ? Number(row.actual_c).toFixed(2) : '—';
           var pred = row && row.pred_c != null ? Number(row.pred_c).toFixed(2) : '—';
-          var err = (row && row.actual_c != null && row.pred_c != null) ? Math.abs(row.actual_c - row.pred_c).toFixed(2) : '—';
+          var err = (row && row.actual_c != null && row.pred_c != null) ? Math.abs(row.actual_c - row.pred_c).toFixed(3) : '—';
           return '<div class="apex-tooltip apex-custom" style="padding:8px 12px;background:' + tooltipBg + ';border:1px solid ' + tooltipBorder + ';border-radius:6px;font-size:12px;color:' + textColor + '">Time: ' + time + (hor ? ' | Horizon: ' + hor : '') + ' | Actual: ' + actual + ' | Predicted: ' + pred + ' | Abs Error: ' + err + '</div>';
         }
       }
@@ -246,11 +260,11 @@
       var pc = safeNum(p.pred_c);
       predMd.push(pm);
       actualMdScatter.push({ x: i, y: am });
-      // Absolute Error only for past 8 + current (indices 0–8). Future (9–16) = null = "waiting for future data".
-      errMd.push((i <= 8 && am != null && pm != null) ? Math.abs(am - pm) : null);
+      // Absolute Error only for future 8 steps (h1..h8, indices 9–16). |Future Actual − Future Predicted|
+      errMd.push((i >= 9 && am != null && pm != null) ? Math.abs(am - pm) : null);
       predC.push(pc);
       actualCScatter.push({ x: i, y: ac });
-      errC.push((i <= 8 && ac != null && pc != null) ? Math.abs(ac - pc) : null);
+      errC.push((i >= 9 && ac != null && pc != null) ? Math.abs(ac - pc) : null);
     }
 
     if (chartMdMain) {
