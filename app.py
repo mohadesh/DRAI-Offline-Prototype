@@ -328,16 +328,24 @@ def _build_analytics_window(runner, horizon_8, session_freq):
         pred_md_8.append(None)
     while len(pred_c_8) < FUTURE:
         pred_c_8.append(None)
+
+    print(f"RAW MODEL OUTPUT MD: {pred_md_8}")
+    print(f"RAW MODEL OUTPUT C: {pred_c_8}")
+
+    if not pred_md_8 or len(pred_md_8) != 8:
+        print("WARNING: MD model did not return 8 values. Falling back to Nones.")
+        pred_md_8 = [None] * 8
+    if not pred_c_8 or len(pred_c_8) != 8:
+        print("WARNING: C model did not return 8 values. Falling back to Nones.")
+        pred_c_8 = [None] * 8
+
     predicted_md_17 = [None] * 9 + [_safe_float(x) for x in pred_md_8]
     predicted_c_17 = [None] * 9 + [_safe_float(x) for x in pred_c_8]
 
-    # --- BYPASS TEST: Override model output temporarily to isolate serialization vs model ---
-    dummy_pred_md_8 = [90.5, 91.0, 91.5, 92.0, 92.5, 93.0, 93.5, 94.0]
-    dummy_pred_c_8 = [2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7]
-    predicted_md_17 = [None] * 9 + list(dummy_pred_md_8)
-    predicted_c_17 = [None] * 9 + list(dummy_pred_c_8)
-    print("DEBUG PAYLOAD MD:", predicted_md_17)
-    print("DEBUG PAYLOAD C:", predicted_c_17)
+    if all(predicted_md_17[i] is None for i in range(9, 17)):
+        print("WARNING: MD model returned no valid values (all None/NaN after safe_float).")
+    if all(predicted_c_17[i] is None for i in range(9, 17)):
+        print("WARNING: C model returned no valid values (all None/NaN after safe_float).")
 
     window = []
     for i in range(WINDOW_LEN):
@@ -555,7 +563,15 @@ def update_dashboard():
             analytics_mae["mae_md"] = round(mae_md, 4) if mae_md is not None else None
             analytics_mae["mae_c"] = round(mae_c, 4) if mae_c is not None else None
         except Exception as e:
-            logger.debug("Analytics window build failed: %s", e)
+            print(f"MODEL INFERENCE ERROR: {e}")
+            logger.exception("Analytics window build failed")
+            horizon_8 = {}
+            try:
+                analytics_window, mae_md, mae_c = _build_analytics_window(runner, horizon_8, session.get("model_frequency", DEFAULT_MODEL_FREQUENCY))
+                analytics_mae["mae_md"] = round(mae_md, 4) if mae_md is not None else None
+                analytics_mae["mae_c"] = round(mae_c, 4) if mae_c is not None else None
+            except Exception as e2:
+                logger.debug("Analytics window fallback failed: %s", e2)
 
     partial_rest = request.args.get("partial") == "rest"
 
