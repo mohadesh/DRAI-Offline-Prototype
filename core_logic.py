@@ -373,10 +373,12 @@ def run_inference_for_md_c(model_md, model_c, df_window, frequency="30T"):
 def run_inference_horizon_8(model_md, model_c, df_window, frequency="30T"):
     """
     Multi-horizon inference: predict the next 8 steps (h1..h8) for MD and C.
-    Returns {"MD": [v1,...,v8] or None, "C": [v1,...,v8] or None} for use in the
-    analytics 17-point window (future 8 positions).
+    Correctly scales the input targets to prevent autoregressive decay during multi-step forecasting.
+    Returns {"MD": [v1,...,v8] or None, "C": [v1,...,v8] or None}
     """
     import joblib
+    import numpy as np
+    import pandas as pd
 
     try:
         from darts import TimeSeries
@@ -398,6 +400,7 @@ def run_inference_horizon_8(model_md, model_c, df_window, frequency="30T"):
 
     safe_freq = frequency.replace("T", "min").replace("H", "h")
     scalers_dir = BASE_DIR / "scalers"
+    
     try:
         scaler_inst = joblib.load(scalers_dir / f"scaler_inst_{frequency}.pkl")
         scaler_pellet = joblib.load(scalers_dir / f"scaler_pellet_{frequency}.pkl")
@@ -406,28 +409,35 @@ def run_inference_horizon_8(model_md, model_c, df_window, frequency="30T"):
         logger.error(f"Horizon-8 scalers failed: {e}")
         return out
 
+    # --- 1. Process Covariates (Features) ---
     active_model = model_md if model_md is not None else model_c
     model_covs = list(active_model.past_covariate_components) if (active_model and getattr(active_model, 'past_covariate_components', None)) else PAST_COVARIATES_COLS
+    
     for col in model_covs:
         if col not in df.columns:
             df[col] = 0.0
+            
     cov_df = df[model_covs].fillna(0.0).copy()
     pellet_cols = [c for c in model_covs if c.startswith('PELLET_')]
     inst_cols_to_scale = [c for c in model_covs if c.startswith('INST_') and c not in UNSCALED_FEATURES]
+    
     try:
         if len(inst_cols_to_scale) > 0:
             ts_inst = TimeSeries.from_dataframe(cov_df[inst_cols_to_scale], freq=safe_freq)
             scaled_ts_inst = scaler_inst.transform(ts_inst)
             cov_df[inst_cols_to_scale] = scaled_ts_inst.values()
+            
         if len(pellet_cols) > 0:
             ts_pellet = TimeSeries.from_dataframe(cov_df[pellet_cols], freq=safe_freq)
             scaled_ts_pellet = scaler_pellet.transform(ts_pellet)
             cov_df[pellet_cols] = scaled_ts_pellet.values()
+            
         covariate_series = TimeSeries.from_dataframe(cov_df[model_covs], freq=safe_freq)
     except Exception as e:
         logger.error(f"Horizon-8 covariates failed: {e}")
         return out
 
+    # --- Helper: Get Target Scaler ---
     def get_actual_scaler(is_md):
         if not isinstance(scaler_target, dict):
             return scaler_target
@@ -440,6 +450,7 @@ def run_inference_horizon_8(model_md, model_c, df_window, frequency="30T"):
             return scaler_target["C"]
         return list(scaler_target.values())[0] if scaler_target else None
 
+    # --- Helper: Safe Float Conversion ---
     def _to_python_float(v):
         """Ensure standard Python float for JSON (no numpy)."""
         if v is None:
@@ -450,13 +461,34 @@ def run_inference_horizon_8(model_md, model_c, df_window, frequency="30T"):
         except (TypeError, ValueError):
             return None
 
+    # --- 2. Helper: Scale the Targets (The crucial fix for Decay) ---
+    def get_scaled_target_series(target_name, is_md):
+        ts_df = df[[target_name]].fillna(0.0) if target_name in df.columns else pd.DataFrame({target_name: [0.0] * len(df)}, index=df.index)
+        try:
+            ts = TimeSeries.from_dataframe(ts_df, freq=safe_freq)
+        except Exception:
+            ts = TimeSeries.from_dataframe(ts_df)
+            
+        actual_scaler = get_actual_scaler(is_md)
+        if actual_scaler:
+            try:
+                # راز حل مشکل اینجاست: اسکیل کردن دیتا قبل از تزریق به مدل
+                return actual_scaler.transform(ts)
+            except Exception as e:
+                logger.warning(f"Failed to scale {target_name}, using raw. Error: {e}")
+        return ts
+
+    # --- 3. Helper: Inverse Transform Predictions ---
     def inverse_transform_horizon(pred_ts, is_md):
-        """Inverse-transform an 8-step prediction series to a list of 8 standard Python floats."""
+        """Inverse-transform an 8-step prediction series safely."""
         if pred_ts is None or len(pred_ts) != HORIZON:
             return None
+            
         actual_scaler = get_actual_scaler(is_md)
         if actual_scaler is None:
             return [_to_python_float(pred_ts.values()[i][0]) for i in range(HORIZON)]
+            
+        # Attempt 1: Direct inverse transform
         try:
             inv = actual_scaler.inverse_transform(pred_ts)
             vals = inv.values()
@@ -464,38 +496,41 @@ def run_inference_horizon_8(model_md, model_c, df_window, frequency="30T"):
                 return [_to_python_float(vals[i][0]) for i in range(HORIZON)]
         except Exception:
             pass
-        out_list = []
-        for i in range(HORIZON):
-            try:
-                val = float(pred_ts.values()[i][0])
-                t_idx = pred_ts.time_index[i : i + 1]
-                one_df = pd.DataFrame({TARGET_MD_COL if is_md else TARGET_C_COL: [val]}, index=t_idx)
-                single_ts = TimeSeries.from_dataframe(one_df, freq=safe_freq)
-                inv = actual_scaler.inverse_transform(single_ts)
-                out_list.append(_to_python_float(inv.values()[-1][0]))
-            except Exception:
-                out_list.append(None)
-        return out_list if all(x is not None for x in out_list) else None
-
-    def get_target_series(target_name):
-        ts_df = df[[target_name]].fillna(0.0) if target_name in df.columns else pd.DataFrame({target_name: [0.0] * len(df)}, index=df.index)
+            
+        # Attempt 2: Fallback using dummy 2-column DataFrame
+        # (Needed if the scaler expects both MD and C simultaneously)
         try:
-            return TimeSeries.from_dataframe(ts_df, freq=safe_freq)
-        except Exception:
-            return TimeSeries.from_dataframe(ts_df)
+            dummy_df = pd.DataFrame(0.0, index=pred_ts.time_index, columns=[TARGET_MD_COL, TARGET_C_COL])
+            col_name = TARGET_MD_COL if is_md else TARGET_C_COL
+            dummy_df[col_name] = pred_ts.values().flatten()
+            dummy_ts = TimeSeries.from_dataframe(dummy_df, freq=safe_freq)
+            
+            inv = actual_scaler.inverse_transform(dummy_ts)
+            col_idx = 0 if is_md else 1
+            vals = inv.values()
+            if vals is not None and len(vals) >= HORIZON:
+                return [_to_python_float(vals[i][col_idx]) for i in range(HORIZON)]
+        except Exception as e:
+            logger.error(f"Fallback inverse transform horizon-8 failed: {e}")
+            
+        # Attempt 3: Return raw if all scaling attempts fail
+        return [_to_python_float(pred_ts.values()[i][0]) for i in range(HORIZON)]
 
+    # --- 4. Execute Horizon Inference ---
     if model_md is not None:
         try:
-            target_series_md = get_target_series(TARGET_MD_COL)
-            pred_md_scaled = model_md.predict(n=HORIZON, series=target_series_md, past_covariates=covariate_series)
+            # استفاده از دیتای اسکیل شده به جای دیتای خام
+            scaled_target_md = get_scaled_target_series(TARGET_MD_COL, is_md=True)
+            pred_md_scaled = model_md.predict(n=HORIZON, series=scaled_target_md, past_covariates=covariate_series)
             out["MD"] = inverse_transform_horizon(pred_md_scaled, is_md=True)
         except Exception as e:
             logger.error(f"MD horizon-8 prediction failed: {e}")
 
     if model_c is not None:
         try:
-            target_series_c = get_target_series(TARGET_C_COL)
-            pred_c_scaled = model_c.predict(n=HORIZON, series=target_series_c, past_covariates=covariate_series)
+            # استفاده از دیتای اسکیل شده به جای دیتای خام
+            scaled_target_c = get_scaled_target_series(TARGET_C_COL, is_md=False)
+            pred_c_scaled = model_c.predict(n=HORIZON, series=scaled_target_c, past_covariates=covariate_series)
             out["C"] = inverse_transform_horizon(pred_c_scaled, is_md=False)
         except Exception as e:
             logger.error(f"C horizon-8 prediction failed: {e}")
