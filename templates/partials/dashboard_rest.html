@@ -16,7 +16,7 @@
   if (maeEl && typeof window.updateAnalyticsKpis === 'function') {
     try {
       var mae = JSON.parse(maeEl.textContent || '{}');
-      window.updateAnalyticsKpis(mae.mae_md, mae.mae_c);
+      if (mae.mae_md !== undefined || mae.mae_c !== undefined) window.updateAnalyticsKpis(mae.mae_md, mae.mae_c);
     } catch (e) {}
   }
 })();
