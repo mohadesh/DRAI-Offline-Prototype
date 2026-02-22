@@ -331,6 +331,14 @@ def _build_analytics_window(runner, horizon_8, session_freq):
     predicted_md_17 = [None] * 9 + [_safe_float(x) for x in pred_md_8]
     predicted_c_17 = [None] * 9 + [_safe_float(x) for x in pred_c_8]
 
+    # --- BYPASS TEST: Override model output temporarily to isolate serialization vs model ---
+    dummy_pred_md_8 = [90.5, 91.0, 91.5, 92.0, 92.5, 93.0, 93.5, 94.0]
+    dummy_pred_c_8 = [2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7]
+    predicted_md_17 = [None] * 9 + list(dummy_pred_md_8)
+    predicted_c_17 = [None] * 9 + list(dummy_pred_c_8)
+    print("DEBUG PAYLOAD MD:", predicted_md_17)
+    print("DEBUG PAYLOAD C:", predicted_c_17)
+
     window = []
     for i in range(WINDOW_LEN):
         idx = start_idx + i
