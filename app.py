@@ -250,18 +250,18 @@ def _json_safe_number(v):
         return None
 
 
-def _build_analytics_window(runner, predictions, session_freq):
+def _build_analytics_window(runner, horizon_8, session_freq):
     """
     Build the 17-point sliding window for the Advanced Analytics panel.
     Layout: past 8 (t-8..t-1), current (t), future 8 (h1..h8).
-    Returns (list of 17 dicts, mae_md_past, mae_c_past).
-    - Future steps (indices 9–16): pred_md and pred_c are always None (no mocked data).
-    - All values are JSON-safe: NaN/NaT converted to None so JSON emits null.
+    - Actual (red): real lab data for all 17 points from the offline dataset.
+    - Predicted (blue): None for indices 0–8; indices 9–16 filled from horizon_8 (multi-step model output).
+    - MAE: computed over the future 8 steps (h1..h8) only.
     """
     WINDOW_LEN = 17
     PAST, CURRENT, FUTURE = 8, 1, 8
-    center = runner.current_index - 1  # step we just displayed (before get_next_step)
-    start_idx = max(0, center - PAST)
+    # After get_next_step(), the step we just displayed is at (current_index - 1). Window = 8 past + current + 8 future.
+    start_idx = max(0, runner.current_index - 9)
     end_idx = min(runner.total_rows, start_idx + WINDOW_LEN)
     df = runner.df
 
@@ -290,12 +290,22 @@ def _build_analytics_window(runner, predictions, session_freq):
             return str(g)[:5] if g else "—"
 
     def _json_safe_ts(v):
-        """Timestamp for JSON: None or string, never NaT/NaN."""
         if v is None or (isinstance(v, float) and (pd.isna(v) or math.isnan(v))):
             return None
         if isinstance(v, pd.Timestamp):
             return str(v)
         return v
+
+    horizon_md = (horizon_8 or {}).get("MD")
+    horizon_c = (horizon_8 or {}).get("C")
+    if not isinstance(horizon_md, list):
+        horizon_md = []
+    if not isinstance(horizon_c, list):
+        horizon_c = []
+    while len(horizon_md) < FUTURE:
+        horizon_md.append(None)
+    while len(horizon_c) < FUTURE:
+        horizon_c.append(None)
 
     window = []
     for i in range(WINDOW_LEN):
@@ -319,12 +329,12 @@ def _build_analytics_window(runner, predictions, session_freq):
 
         actual_md = _get(row, "MDNC_M_D") if row else None
         actual_c = _get(row, "MDNC_C") if row else None
-        # Prediction: only at current step (t); future steps (h1..h8) are never mocked — leave as None
         pred_md = None
         pred_c = None
-        if row and idx == center and predictions:
-            pred_md = _json_safe_number(predictions.get("MD"))
-            pred_c = _json_safe_number(predictions.get("C"))
+        if i >= 9 and i - 9 < len(horizon_md):
+            pred_md = _json_safe_number(horizon_md[i - 9])
+        if i >= 9 and i - 9 < len(horizon_c):
+            pred_c = _json_safe_number(horizon_c[i - 9])
 
         window.append({
             "timestamp": _json_safe_ts(row.get("georgian_datetime") if row else None),
@@ -335,12 +345,12 @@ def _build_analytics_window(runner, predictions, session_freq):
             "pred_c": _json_safe_number(pred_c),
         })
 
-    # MAE over past 9 points (t-8 to t)
-    past_slice = window[: PAST + CURRENT]
+    # MAE over future 8 steps (h1..h8) only
+    future_slice = window[9:17]
     mae_md = None
     mae_c = None
-    errs_md = [abs(p["actual_md"] - p["pred_md"]) for p in past_slice if p["actual_md"] is not None and p["pred_md"] is not None]
-    errs_c = [abs(p["actual_c"] - p["pred_c"]) for p in past_slice if p["actual_c"] is not None and p["pred_c"] is not None]
+    errs_md = [abs(p["actual_md"] - p["pred_md"]) for p in future_slice if p["actual_md"] is not None and p["pred_md"] is not None]
+    errs_c = [abs(p["actual_c"] - p["pred_c"]) for p in future_slice if p["actual_c"] is not None and p["pred_c"] is not None]
     if errs_md:
         mae_md = sum(errs_md) / len(errs_md)
     if errs_c:
@@ -485,10 +495,17 @@ def update_dashboard():
     else:
         tag_values["time"] = "—"
 
-    # 17-point analytics window and past-window MAE for Advanced Analytics panel
+    # 17-point analytics window and future-horizon MAE (h1..h8) for Advanced Analytics panel
     if runner and runner.total_rows > 0:
         try:
-            analytics_window, mae_md, mae_c = _build_analytics_window(runner, predictions, session.get("model_frequency", DEFAULT_MODEL_FREQUENCY))
+            start_idx = max(0, runner.current_index - 9)
+            df_analytics = runner.df.iloc[start_idx:runner.current_index].copy()
+            freq = session.get("model_frequency", DEFAULT_MODEL_FREQUENCY)
+            md_path, c_path = get_model_paths_for_frequency(freq)
+            model_md = get_cached_model(md_path)
+            model_c = get_cached_model(c_path)
+            horizon_8 = core_logic.run_inference_horizon_8(model_md, model_c, df_analytics, frequency=freq)
+            analytics_window, mae_md, mae_c = _build_analytics_window(runner, horizon_8, freq)
             analytics_mae["mae_md"] = round(mae_md, 4) if mae_md is not None else None
             analytics_mae["mae_c"] = round(mae_c, 4) if mae_c is not None else None
         except Exception as e:
