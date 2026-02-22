@@ -101,15 +101,15 @@
       tooltip: { theme: isDark ? 'dark' : 'light', shared: true, intersect: false }
     };
 
-    // MD Main — line (predicted) + scatter (actual), Y 85–100. Scatter must have explicit size so red dots render.
+    // MD Main — line (predicted) + scatter (actual), Y 85–100. Sparse data: force markers so isolated points render.
     chartMdMain = new ApexCharts(document.querySelector('#chart-md-main'), {
       series: [
         { name: 'Predicted', type: 'line', data: [], color: '#2563eb' },
-        { name: 'Actual', type: 'scatter', data: [], color: '#dc2626' }
+        { name: 'Actual', type: 'line', data: [], color: '#dc2626' }
       ],
       chart: Object.assign({}, baseChart.chart, { height: 280, group: 'md-group', animations: { enabled: true } }),
-      stroke: { curve: 'straight', width: 2 },
-      markers: { size: [5, 5], strokeWidth: 0, hover: { sizeOffset: 2 } },
+      stroke: { curve: 'straight', width: [2, 2] },
+      markers: { size: 5, shape: 'circle', strokeWidth: 0, hover: { sizeOffset: 2 } },
       grid: baseChart.grid,
       xaxis: baseChart.xaxis,
       yaxis: { min: 85, max: 100, labels: { style: { colors: textColor } }, title: { text: 'MD (%)', style: { color: textColor } } },
@@ -165,15 +165,15 @@
     });
     chartMdError.render();
 
-    // C Main — line + scatter, Y 0–5
+    // C Main — line + scatter, Y 0–5. Sparse data: force markers so isolated points render.
     chartCMain = new ApexCharts(document.querySelector('#chart-c-main'), {
       series: [
         { name: 'Predicted', type: 'line', data: [], color: '#2563eb' },
-        { name: 'Actual', type: 'scatter', data: [], color: '#dc2626' }
+        { name: 'Actual', type: 'line', data: [], color: '#dc2626' }
       ],
       chart: Object.assign({}, baseChart.chart, { height: 280, group: 'c-group', animations: { enabled: true } }),
-      stroke: { curve: 'straight', width: 2 },
-      markers: { size: [5, 5], strokeWidth: 0, hover: { sizeOffset: 2 } },
+      stroke: { curve: 'straight', width: [2, 2] },
+      markers: { size: 5, shape: 'circle', strokeWidth: 0, hover: { sizeOffset: 2 } },
       grid: baseChart.grid,
       xaxis: baseChart.xaxis,
       yaxis: { min: 0, max: 5, labels: { style: { colors: textColor } }, title: { text: 'C (%)', style: { color: textColor } } },
@@ -237,59 +237,81 @@
 
   window.updateCharts = function(newDataArray) {
     if (!newDataArray || !Array.isArray(newDataArray)) return;
-    lastDataArray = newDataArray;
-    var categories = buildCategories(newDataArray);
+    var arr = newDataArray.slice();
+    if (arr.length < 17) {
+      while (arr.length < 17) arr.push({ timestamp: null, time_display: '—', actual_md: null, pred_md: null, actual_c: null, pred_c: null });
+    }
+    lastDataArray = arr;
+    var categories = buildCategories(arr);
     while (categories.length < 17) categories.push('—');
 
-    var predMd = [], actualMdScatter = [], errMd = [];
-    var predC = [], actualCScatter = [], errC = [];
+    var actualMd = [], predMd = [], actualC = [], predC = [];
     for (var i = 0; i < 17; i++) {
-      var p = newDataArray[i];
-      if (!p) {
-        predMd.push(null);
-        actualMdScatter.push({ x: i, y: null });
-        errMd.push(null);
-        predC.push(null);
-        actualCScatter.push({ x: i, y: null });
-        errC.push(null);
-        continue;
-      }
-      var am = safeNum(p.actual_md);
-      var pm = safeNum(p.pred_md);
-      var ac = safeNum(p.actual_c);
-      var pc = safeNum(p.pred_c);
-      predMd.push(pm);
-      actualMdScatter.push({ x: i, y: am });
-      // Absolute Error only for future 8 steps (h1..h8, indices 9–16). |Future Actual − Future Predicted|
-      errMd.push((i >= 9 && am != null && pm != null) ? Math.abs(am - pm) : null);
-      predC.push(pc);
-      actualCScatter.push({ x: i, y: ac });
-      errC.push((i >= 9 && ac != null && pc != null) ? Math.abs(ac - pc) : null);
+      var p = arr[i] || {};
+      actualMd.push(safeNum(p.actual_md));
+      predMd.push(safeNum(p.pred_md));
+      actualC.push(safeNum(p.actual_c));
+      predC.push(safeNum(p.pred_c));
     }
+
+    var future_errors_md = [];
+    var future_errors_c = [];
+    var future_abs_chart_data_md = new Array(17).fill(null);
+    var future_abs_chart_data_c = new Array(17).fill(null);
+    for (var j = 9; j < 17; j++) {
+      var actMd = actualMd[j];
+      var predMdVal = predMd[j];
+      if (actMd !== null && predMdVal !== null && !isNaN(actMd) && !isNaN(predMdVal)) {
+        var errMd = Math.abs(actMd - predMdVal);
+        future_errors_md.push(errMd);
+        future_abs_chart_data_md[j] = parseFloat(errMd.toFixed(3));
+      }
+      var actC = actualC[j];
+      var predCVal = predC[j];
+      if (actC !== null && predCVal !== null && !isNaN(actC) && !isNaN(predCVal)) {
+        var errC = Math.abs(actC - predCVal);
+        future_errors_c.push(errC);
+        future_abs_chart_data_c[j] = parseFloat(errC.toFixed(3));
+      }
+    }
+    var maeMd = future_errors_md.length > 0
+      ? (future_errors_md.reduce(function(a, b) { return a + b; }, 0) / future_errors_md.length).toFixed(3)
+      : 'N/A (No Lab Data)';
+    var maeC = future_errors_c.length > 0
+      ? (future_errors_c.reduce(function(a, b) { return a + b; }, 0) / future_errors_c.length).toFixed(3)
+      : 'N/A (No Lab Data)';
+
+    console.log('Predicted MD:', predMd);
+    console.log('Predicted C:', predC);
 
     if (chartMdMain) {
       chartMdMain.updateOptions({ xaxis: { categories: categories } });
-      chartMdMain.updateSeries([{ data: predMd }, { data: actualMdScatter }]);
+      chartMdMain.updateSeries([{ data: predMd }, { data: actualMd }]);
     }
     if (chartMdError) {
       chartMdError.updateOptions({ xaxis: { categories: categories } });
-      chartMdError.updateSeries([{ data: errMd }]);
+      chartMdError.updateSeries([{ data: future_abs_chart_data_md }]);
     }
     if (chartCMain) {
       chartCMain.updateOptions({ xaxis: { categories: categories } });
-      chartCMain.updateSeries([{ data: predC }, { data: actualCScatter }]);
+      chartCMain.updateSeries([{ data: predC }, { data: actualC }]);
     }
     if (chartCError) {
       chartCError.updateOptions({ xaxis: { categories: categories } });
-      chartCError.updateSeries([{ data: errC }]);
+      chartCError.updateSeries([{ data: future_abs_chart_data_c }]);
+    }
+    if (typeof window.updateAnalyticsKpis === 'function') {
+      window.updateAnalyticsKpis(maeMd, maeC);
     }
   };
 
   window.updateAnalyticsKpis = function(maeMd, maeC) {
     var elMd = document.getElementById('kpi-md-mae');
     var elC = document.getElementById('kpi-c-mae');
-    if (elMd) elMd.textContent = maeMd != null && maeMd !== '' ? Number(maeMd).toFixed(3) : '—';
-    if (elC) elC.textContent = maeC != null && maeC !== '' ? Number(maeC).toFixed(3) : '—';
+    var strMd = (maeMd != null && maeMd !== '') ? (typeof maeMd === 'string' && maeMd.indexOf('N/A') !== -1 ? maeMd : Number(maeMd).toFixed(3)) : '—';
+    var strC = (maeC != null && maeC !== '') ? (typeof maeC === 'string' && maeC.indexOf('N/A') !== -1 ? maeC : Number(maeC).toFixed(3)) : '—';
+    if (elMd) elMd.textContent = strMd;
+    if (elC) elC.textContent = strC;
   };
 
   if (typeof ApexCharts !== 'undefined') {

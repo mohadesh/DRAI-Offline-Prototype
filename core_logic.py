@@ -440,18 +440,28 @@ def run_inference_horizon_8(model_md, model_c, df_window, frequency="30T"):
             return scaler_target["C"]
         return list(scaler_target.values())[0] if scaler_target else None
 
+    def _to_python_float(v):
+        """Ensure standard Python float for JSON (no numpy)."""
+        if v is None:
+            return None
+        try:
+            f = float(v)
+            return None if (np.isnan(f) if hasattr(np, 'isnan') else (f != f)) or np.isinf(f) else round(f, 3)
+        except (TypeError, ValueError):
+            return None
+
     def inverse_transform_horizon(pred_ts, is_md):
-        """Inverse-transform an 8-step prediction series to a list of 8 floats."""
+        """Inverse-transform an 8-step prediction series to a list of 8 standard Python floats."""
         if pred_ts is None or len(pred_ts) != HORIZON:
             return None
         actual_scaler = get_actual_scaler(is_md)
         if actual_scaler is None:
-            return [float(pred_ts.values()[i][0]) for i in range(HORIZON)]
+            return [_to_python_float(pred_ts.values()[i][0]) for i in range(HORIZON)]
         try:
             inv = actual_scaler.inverse_transform(pred_ts)
             vals = inv.values()
             if vals is not None and len(vals) >= HORIZON:
-                return [round(float(vals[i][0]), 2) for i in range(HORIZON)]
+                return [_to_python_float(vals[i][0]) for i in range(HORIZON)]
         except Exception:
             pass
         out_list = []
@@ -462,7 +472,7 @@ def run_inference_horizon_8(model_md, model_c, df_window, frequency="30T"):
                 one_df = pd.DataFrame({TARGET_MD_COL if is_md else TARGET_C_COL: [val]}, index=t_idx)
                 single_ts = TimeSeries.from_dataframe(one_df, freq=safe_freq)
                 inv = actual_scaler.inverse_transform(single_ts)
-                out_list.append(round(float(inv.values()[-1][0]), 2))
+                out_list.append(_to_python_float(inv.values()[-1][0]))
             except Exception:
                 out_list.append(None)
         return out_list if all(x is not None for x in out_list) else None

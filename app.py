@@ -232,18 +232,37 @@ ALLOWED_PROCESS_TAGS = [
     "TTA521", "TTA522", "TTA523", "TTA524", "TTA525", "TTA526", "TTA527", "TTA528", "TTA529", "TTA5210",
 ]
 
+def _safe_float(val):
+    """
+    Cast to standard Python float for JSON. Returns None for nan/inf or invalid.
+    Used for the 8 horizon predictions so the frontend receives real numbers, not numpy.
+    """
+    if val is None:
+        return None
+    try:
+        f = float(val)
+        if math.isnan(f) or math.isinf(f):
+            return None
+        return round(f, 3)
+    except (TypeError, ValueError):
+        return None
+
+
 def _json_safe_number(v):
     """
     Return a JSON-safe numeric value: Python None for NaN/missing, so JSON renders as null.
-    Industrial practice: never serialize Pandas/NumPy NaN into JSON (breaks JS parsing).
+    Replaces pd.NA, np.nan, math.isnan with None so JS receives null.
     """
     if v is None:
         return None
-    if isinstance(v, float) and (pd.isna(v) or math.isnan(v)):
-        return None
+    try:
+        if pd.isna(v) if hasattr(pd, 'isna') else (isinstance(v, float) and math.isnan(v)):
+            return None
+    except Exception:
+        pass
     try:
         f = float(v)
-        if math.isnan(f):
+        if math.isnan(f) or math.isinf(f):
             return None
         return f
     except (TypeError, ValueError):
@@ -296,16 +315,21 @@ def _build_analytics_window(runner, horizon_8, session_freq):
             return str(v)
         return v
 
-    horizon_md = (horizon_8 or {}).get("MD")
-    horizon_c = (horizon_8 or {}).get("C")
-    if not isinstance(horizon_md, list):
-        horizon_md = []
-    if not isinstance(horizon_c, list):
-        horizon_c = []
-    while len(horizon_md) < FUTURE:
-        horizon_md.append(None)
-    while len(horizon_c) < FUTURE:
-        horizon_c.append(None)
+    # Build strict 17-element predicted arrays: 9 Nones + 8 horizon predictions (standard Python floats)
+    raw_md = (horizon_8 or {}).get("MD")
+    raw_c = (horizon_8 or {}).get("C")
+    if not isinstance(raw_md, list):
+        raw_md = []
+    if not isinstance(raw_c, list):
+        raw_c = []
+    pred_md_8 = list(raw_md)[:FUTURE]
+    pred_c_8 = list(raw_c)[:FUTURE]
+    while len(pred_md_8) < FUTURE:
+        pred_md_8.append(None)
+    while len(pred_c_8) < FUTURE:
+        pred_c_8.append(None)
+    predicted_md_17 = [None] * 9 + [_safe_float(x) for x in pred_md_8]
+    predicted_c_17 = [None] * 9 + [_safe_float(x) for x in pred_c_8]
 
     window = []
     for i in range(WINDOW_LEN):
@@ -329,12 +353,8 @@ def _build_analytics_window(runner, horizon_8, session_freq):
 
         actual_md = _get(row, "MDNC_M_D") if row else None
         actual_c = _get(row, "MDNC_C") if row else None
-        pred_md = None
-        pred_c = None
-        if i >= 9 and i - 9 < len(horizon_md):
-            pred_md = _json_safe_number(horizon_md[i - 9])
-        if i >= 9 and i - 9 < len(horizon_c):
-            pred_c = _json_safe_number(horizon_c[i - 9])
+        pred_md = predicted_md_17[i] if i < len(predicted_md_17) else None
+        pred_c = predicted_c_17[i] if i < len(predicted_c_17) else None
 
         window.append({
             "timestamp": _json_safe_ts(row.get("georgian_datetime") if row else None),
@@ -344,6 +364,24 @@ def _build_analytics_window(runner, horizon_8, session_freq):
             "actual_c": _json_safe_number(actual_c),
             "pred_c": _json_safe_number(pred_c),
         })
+
+    # Enforce exactly 17 elements: pad with null row if needed
+    null_row = {
+        "timestamp": None,
+        "time_display": "—",
+        "actual_md": None,
+        "pred_md": None,
+        "actual_c": None,
+        "pred_c": None,
+    }
+    while len(window) < WINDOW_LEN:
+        window.append(dict(null_row))
+
+    # Final pass: ensure no pd.NA/np.nan/float('nan') slips through (JSON must emit null only)
+    for item in window:
+        for key in ("actual_md", "actual_c", "pred_md", "pred_c"):
+            item[key] = _json_safe_number(item.get(key))
+        item["timestamp"] = _json_safe_ts(item.get("timestamp"))
 
     # MAE over future 8 steps (h1..h8) only
     future_slice = window[9:17]
