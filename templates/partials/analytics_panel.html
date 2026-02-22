@@ -1,0 +1,289 @@
+{# Advanced Analytics & Prediction Panel — below SVG, ApexCharts MD/C subplots + KPI cards #}
+<section id="analytics-panel" class="mt-6 w-full rounded-xl border border-slate-200 bg-white shadow-sm dark:border-zinc-600 dark:bg-zinc-900" aria-label="Advanced Analytics & Prediction">
+  <div class="border-b border-slate-200 px-4 py-3 dark:border-zinc-700">
+    <h2 class="text-lg font-semibold text-slate-800 dark:text-zinc-100">Advanced Analytics &amp; Prediction</h2>
+    <p class="mt-0.5 text-xs text-slate-500 dark:text-zinc-400">ML predictions vs. laboratory data — sliding 17-point window (past 8, current, future 8)</p>
+  </div>
+
+  {# KPI Cards — Past window MAE #}
+  <div class="grid grid-cols-1 gap-3 px-4 py-3 sm:grid-cols-2">
+    <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 dark:border-zinc-600 dark:bg-zinc-800">
+      <p class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-zinc-400">MD (Metallization) Overall MAE</p>
+      <p id="kpi-md-mae" class="mt-1 text-2xl font-bold tabular-nums text-slate-800 dark:text-zinc-100">—</p>
+      <p class="text-xs text-slate-500 dark:text-zinc-400">Past window (t−8 to t)</p>
+    </div>
+    <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 dark:border-zinc-600 dark:bg-zinc-800">
+      <p class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-zinc-400">Carbon Overall MAE</p>
+      <p id="kpi-c-mae" class="mt-1 text-2xl font-bold tabular-nums text-slate-800 dark:text-zinc-100">—</p>
+      <p class="text-xs text-slate-500 dark:text-zinc-400">Past window (t−8 to t)</p>
+    </div>
+  </div>
+
+  {# MD Section — separate scale ~85–100 #}
+  <div class="border-t border-slate-200 px-4 pb-4 pt-3 dark:border-zinc-700">
+    <h3 class="mb-3 text-sm font-semibold text-slate-700 dark:text-zinc-300">MD (Metallization Degree)</h3>
+    <div class="grid grid-cols-1 gap-2">
+      <div id="chart-md-main" class="w-full" style="height: 280px;"></div>
+      <div id="chart-md-error" class="w-full" style="height: 120px;"></div>
+    </div>
+  </div>
+
+  {# C Section — separate scale ~0–5 #}
+  <div class="border-t border-slate-200 px-4 pb-4 pt-3 dark:border-zinc-700">
+    <h3 class="mb-3 text-sm font-semibold text-slate-700 dark:text-zinc-300">C (Carbon)</h3>
+    <div class="grid grid-cols-1 gap-2">
+      <div id="chart-c-main" class="w-full" style="height: 280px;"></div>
+      <div id="chart-c-error" class="w-full" style="height: 120px;"></div>
+    </div>
+  </div>
+</section>
+
+<script>
+(function() {
+  'use strict';
+
+  var isDark = document.documentElement.classList.contains('dark');
+  var gridColor = isDark ? '#3f3f46' : '#e2e8f0';
+  var textColor = isDark ? '#e4e4e7' : '#475569';
+  var tooltipBg = isDark ? '#27272a' : '#ffffff';
+  var tooltipBorder = isDark ? '#52525b' : '#e2e8f0';
+
+  // Last received 17-point data for tooltip lookups
+  var lastDataArray = [];
+
+  function themeColors() {
+    isDark = document.documentElement.classList.contains('dark');
+    gridColor = isDark ? '#3f3f46' : '#e2e8f0';
+    textColor = isDark ? '#e4e4e7' : '#475569';
+    tooltipBg = isDark ? '#27272a' : '#ffffff';
+    tooltipBorder = isDark ? '#52525b' : '#e2e8f0';
+  }
+
+  function formatTime(ts) {
+    if (ts == null || ts === '') return '—';
+    if (typeof ts === 'string' && /^\d{2}:\d{2}$/.test(ts)) return ts;
+    try {
+      var d = new Date(ts);
+      if (isNaN(d.getTime())) return String(ts).slice(0, 5) || '—';
+      var h = d.getHours(), m = d.getMinutes();
+      return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
+    } catch (e) {
+      return String(ts).slice(0, 5) || '—';
+    }
+  }
+
+  function horizonLabel(i) {
+    if (i >= 9 && i <= 16) return 'h' + (i - 8);
+    return '';
+  }
+
+  var chartMdMain = null;
+  var chartMdError = null;
+  var chartCMain = null;
+  var chartCError = null;
+
+  function buildCategories(arr) {
+    return (arr || []).map(function(p) {
+      if (p && p.time_display) return p.time_display;
+      return formatTime(p && p.timestamp);
+    });
+  }
+
+  function initCharts() {
+    themeColors();
+    var categories = Array(17).fill('—');
+
+    var baseChart = {
+      chart: { fontFamily: 'inherit', toolbar: { show: false }, zoom: { enabled: false } },
+      grid: { borderColor: gridColor, strokeDashArray: 2, xaxis: { lines: { show: true } }, yaxis: { lines: { show: true } } },
+      xaxis: { categories: categories, labels: { style: { colors: textColor }, rotate: -45 }, tickAmount: 16, crosshairs: { show: true } },
+      legend: { labels: { colors: textColor }, position: 'top', horizontalAlign: 'right' },
+      tooltip: { theme: isDark ? 'dark' : 'light', shared: true, intersect: false }
+    };
+
+    // MD Main — line (predicted) + scatter (actual), Y 85–100. Scatter must have explicit size so red dots render.
+    chartMdMain = new ApexCharts(document.querySelector('#chart-md-main'), {
+      series: [
+        { name: 'Predicted', type: 'line', data: [], color: '#2563eb' },
+        { name: 'Actual', type: 'scatter', data: [], color: '#dc2626' }
+      ],
+      chart: Object.assign({}, baseChart.chart, { height: 280, group: 'md-group', animations: { enabled: true } }),
+      stroke: { curve: 'straight', width: 2 },
+      markers: { size: [0, 5] },
+      grid: baseChart.grid,
+      xaxis: baseChart.xaxis,
+      yaxis: { min: 85, max: 100, labels: { style: { colors: textColor } }, title: { text: 'MD (%)', style: { color: textColor } } },
+      legend: baseChart.legend,
+      tooltip: {
+        theme: isDark ? 'dark' : 'light',
+        shared: true,
+        intersect: false,
+        custom: function(opts) {
+          var i = opts.dataPointIndex;
+          var row = lastDataArray[i];
+          var time = row ? formatTime(row.timestamp || row.time_display) : (opts.ctx.w.globals.labels[i] || '—');
+          var hor = horizonLabel(i);
+          var actual = row && row.actual_md != null ? Number(row.actual_md).toFixed(2) : '—';
+          var pred = row && row.pred_md != null ? Number(row.pred_md).toFixed(2) : '—';
+          var err = (row && row.actual_md != null && row.pred_md != null) ? Math.abs(row.actual_md - row.pred_md).toFixed(2) : '—';
+          var line = 'Time: ' + time + (hor ? ' | Horizon: ' + hor : '') + ' | Actual: ' + actual + ' | Predicted: ' + pred + ' | Abs Error: ' + err;
+          return '<div class="apex-tooltip apex-custom" style="padding:8px 12px;background:' + tooltipBg + ';border:1px solid ' + tooltipBorder + ';border-radius:6px;font-size:12px;color:' + textColor + '">' + line + '</div>';
+        }
+      }
+    });
+    chartMdMain.render();
+
+    // MD Error — bars only for past 8 + current (indices 0–8). Indices 9–16 (future) stay null = "waiting for future data".
+    chartMdError = new ApexCharts(document.querySelector('#chart-md-error'), {
+      series: [{ name: 'Abs Error', type: 'column', data: [], color: '#64748b' }],
+      chart: Object.assign({}, baseChart.chart, { height: 120, group: 'md-group', animations: { enabled: true } }),
+      plotOptions: { bar: { columnWidth: '70%', distributed: false } },
+      grid: baseChart.grid,
+      xaxis: baseChart.xaxis,
+      yaxis: { min: 0, labels: { style: { colors: textColor } }, title: { text: '|Actual − Predicted|', style: { color: textColor } } },
+      legend: { show: false },
+      tooltip: {
+        theme: isDark ? 'dark' : 'light',
+        custom: function(opts) {
+          var i = opts.dataPointIndex;
+          var row = lastDataArray[i];
+          var time = row ? formatTime(row.timestamp || row.time_display) : (opts.ctx.w.globals.labels[i] || '—');
+          var hor = horizonLabel(i);
+          var actual = row && row.actual_md != null ? Number(row.actual_md).toFixed(2) : '—';
+          var pred = row && row.pred_md != null ? Number(row.pred_md).toFixed(2) : '—';
+          var err = (row && row.actual_md != null && row.pred_md != null) ? Math.abs(row.actual_md - row.pred_md).toFixed(2) : '—';
+          return '<div class="apex-tooltip apex-custom" style="padding:8px 12px;background:' + tooltipBg + ';border:1px solid ' + tooltipBorder + ';border-radius:6px;font-size:12px;color:' + textColor + '">Time: ' + time + (hor ? ' | Horizon: ' + hor : '') + ' | Actual: ' + actual + ' | Predicted: ' + pred + ' | Abs Error: ' + err + '</div>';
+        }
+      }
+    });
+    chartMdError.render();
+
+    // C Main — line + scatter, Y 0–5
+    chartCMain = new ApexCharts(document.querySelector('#chart-c-main'), {
+      series: [
+        { name: 'Predicted', type: 'line', data: [], color: '#2563eb' },
+        { name: 'Actual', type: 'scatter', data: [], color: '#dc2626' }
+      ],
+      chart: Object.assign({}, baseChart.chart, { height: 280, group: 'c-group', animations: { enabled: true } }),
+      stroke: { curve: 'straight', width: 2 },
+      markers: { size: [0, 5] },
+      grid: baseChart.grid,
+      xaxis: baseChart.xaxis,
+      yaxis: { min: 0, max: 5, labels: { style: { colors: textColor } }, title: { text: 'C (%)', style: { color: textColor } } },
+      legend: baseChart.legend,
+      tooltip: {
+        theme: isDark ? 'dark' : 'light',
+        shared: true,
+        intersect: false,
+        custom: function(opts) {
+          var i = opts.dataPointIndex;
+          var row = lastDataArray[i];
+          var time = row ? formatTime(row.timestamp || row.time_display) : (opts.ctx.w.globals.labels[i] || '—');
+          var hor = horizonLabel(i);
+          var actual = row && row.actual_c != null ? Number(row.actual_c).toFixed(2) : '—';
+          var pred = row && row.pred_c != null ? Number(row.pred_c).toFixed(2) : '—';
+          var err = (row && row.actual_c != null && row.pred_c != null) ? Math.abs(row.actual_c - row.pred_c).toFixed(2) : '—';
+          return '<div class="apex-tooltip apex-custom" style="padding:8px 12px;background:' + tooltipBg + ';border:1px solid ' + tooltipBorder + ';border-radius:6px;font-size:12px;color:' + textColor + '">Time: ' + time + (hor ? ' | Horizon: ' + hor : '') + ' | Actual: ' + actual + ' | Predicted: ' + pred + ' | Abs Error: ' + err + '</div>';
+        }
+      }
+    });
+    chartCMain.render();
+
+    // C Error — bars only for past 8 + current (indices 0–8). Indices 9–16 (future) stay null.
+    chartCError = new ApexCharts(document.querySelector('#chart-c-error'), {
+      series: [{ name: 'Abs Error', type: 'column', data: [], color: '#64748b' }],
+      chart: Object.assign({}, baseChart.chart, { height: 120, group: 'c-group', animations: { enabled: true } }),
+      plotOptions: { bar: { columnWidth: '70%' } },
+      grid: baseChart.grid,
+      xaxis: baseChart.xaxis,
+      yaxis: { min: 0, labels: { style: { colors: textColor } }, title: { text: '|Actual − Predicted|', style: { color: textColor } } },
+      legend: { show: false },
+      tooltip: {
+        theme: isDark ? 'dark' : 'light',
+        custom: function(opts) {
+          var i = opts.dataPointIndex;
+          var row = lastDataArray[i];
+          var time = row ? formatTime(row.timestamp || row.time_display) : (opts.ctx.w.globals.labels[i] || '—');
+          var hor = horizonLabel(i);
+          var actual = row && row.actual_c != null ? Number(row.actual_c).toFixed(2) : '—';
+          var pred = row && row.pred_c != null ? Number(row.pred_c).toFixed(2) : '—';
+          var err = (row && row.actual_c != null && row.pred_c != null) ? Math.abs(row.actual_c - row.pred_c).toFixed(2) : '—';
+          return '<div class="apex-tooltip apex-custom" style="padding:8px 12px;background:' + tooltipBg + ';border:1px solid ' + tooltipBorder + ';border-radius:6px;font-size:12px;color:' + textColor + '">Time: ' + time + (hor ? ' | Horizon: ' + hor : '') + ' | Actual: ' + actual + ' | Predicted: ' + pred + ' | Abs Error: ' + err + '</div>';
+        }
+      }
+    });
+    chartCError.render();
+  }
+
+  function safeNum(v) {
+    if (v == null || v === undefined) return null;
+    var n = Number(v);
+    return (typeof n === 'number' && !isNaN(n)) ? n : null;
+  }
+
+  window.updateCharts = function(newDataArray) {
+    if (!newDataArray || !Array.isArray(newDataArray)) return;
+    lastDataArray = newDataArray;
+    var categories = buildCategories(newDataArray);
+    while (categories.length < 17) categories.push('—');
+
+    var predMd = [], actualMdScatter = [], errMd = [];
+    var predC = [], actualCScatter = [], errC = [];
+    for (var i = 0; i < 17; i++) {
+      var p = newDataArray[i];
+      if (!p) {
+        predMd.push(null);
+        actualMdScatter.push({ x: i, y: null });
+        errMd.push(null);
+        predC.push(null);
+        actualCScatter.push({ x: i, y: null });
+        errC.push(null);
+        continue;
+      }
+      var am = safeNum(p.actual_md);
+      var pm = safeNum(p.pred_md);
+      var ac = safeNum(p.actual_c);
+      var pc = safeNum(p.pred_c);
+      predMd.push(pm);
+      actualMdScatter.push({ x: i, y: am });
+      // Absolute Error only for past 8 + current (indices 0–8). Future (9–16) = null = "waiting for future data".
+      errMd.push((i <= 8 && am != null && pm != null) ? Math.abs(am - pm) : null);
+      predC.push(pc);
+      actualCScatter.push({ x: i, y: ac });
+      errC.push((i <= 8 && ac != null && pc != null) ? Math.abs(ac - pc) : null);
+    }
+
+    if (chartMdMain) {
+      chartMdMain.updateOptions({ xaxis: { categories: categories } });
+      chartMdMain.updateSeries([{ data: predMd }, { data: actualMdScatter }]);
+    }
+    if (chartMdError) {
+      chartMdError.updateOptions({ xaxis: { categories: categories } });
+      chartMdError.updateSeries([{ data: errMd }]);
+    }
+    if (chartCMain) {
+      chartCMain.updateOptions({ xaxis: { categories: categories } });
+      chartCMain.updateSeries([{ data: predC }, { data: actualCScatter }]);
+    }
+    if (chartCError) {
+      chartCError.updateOptions({ xaxis: { categories: categories } });
+      chartCError.updateSeries([{ data: errC }]);
+    }
+  };
+
+  window.updateAnalyticsKpis = function(maeMd, maeC) {
+    var elMd = document.getElementById('kpi-md-mae');
+    var elC = document.getElementById('kpi-c-mae');
+    if (elMd) elMd.textContent = maeMd != null && maeMd !== '' ? Number(maeMd).toFixed(3) : '—';
+    if (elC) elC.textContent = maeC != null && maeC !== '' ? Number(maeC).toFixed(3) : '—';
+  };
+
+  if (typeof ApexCharts !== 'undefined') {
+    initCharts();
+  } else {
+    document.addEventListener('DOMContentLoaded', function() {
+      if (typeof ApexCharts !== 'undefined') initCharts();
+    });
+  }
+})();
+</script>

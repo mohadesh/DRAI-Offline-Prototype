@@ -1,6 +1,26 @@
 {# Rest of dashboard: controls + progress in one compact row.
    Button disabled state comes from server-side progress to avoid Alpine.js re-init issues after HTMX swap. #}
 <script type="application/json" id="dashboard-tag-values">{{ tag_values | tojson }}</script>
+<script type="application/json" id="analytics-window-data">{{ analytics_window | default([]) | tojson }}</script>
+<script type="application/json" id="analytics-mae">{{ (analytics_mae or {}) | tojson }}</script>
+<script>
+(function() {
+  var dataEl = document.getElementById('analytics-window-data');
+  var maeEl = document.getElementById('analytics-mae');
+  if (dataEl && typeof window.updateCharts === 'function') {
+    try {
+      var arr = JSON.parse(dataEl.textContent || '[]');
+      if (Array.isArray(arr) && arr.length > 0) window.updateCharts(arr);
+    } catch (e) {}
+  }
+  if (maeEl && typeof window.updateAnalyticsKpis === 'function') {
+    try {
+      var mae = JSON.parse(maeEl.textContent || '{}');
+      window.updateAnalyticsKpis(mae.mae_md, mae.mae_c);
+    } catch (e) {}
+  }
+})();
+</script>
 
 {%- set _running = progress and progress.is_running and not progress.is_paused -%}
 {%- set _paused  = progress and progress.is_paused -%}
