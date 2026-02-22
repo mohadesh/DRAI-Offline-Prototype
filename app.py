@@ -550,10 +550,12 @@ def update_dashboard():
         tag_values["time"] = "—"
 
     # 17-point analytics window and future-horizon MAE (h1..h8) for Advanced Analytics panel
+    # run_inference_horizon_8 requires at least 24 rows; use a larger window for inference, then build 17-point window
     if runner and runner.total_rows > 0:
         try:
-            start_idx = max(0, runner.current_index - 9)
-            df_analytics = runner.df.iloc[start_idx:runner.current_index].copy()
+            min_rows_for_horizon = 24
+            start_idx_inference = max(0, runner.current_index - min_rows_for_horizon)
+            df_analytics = runner.df.iloc[start_idx_inference:runner.current_index].copy()
             freq = session.get("model_frequency", DEFAULT_MODEL_FREQUENCY)
             md_path, c_path = get_model_paths_for_frequency(freq)
             model_md = get_cached_model(md_path)
