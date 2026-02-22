@@ -1,4 +1,5 @@
 # app.py
+import math
 import os
 import uuid
 import logging
@@ -8,6 +9,7 @@ import random
 import warnings
 from pathlib import Path
 from flask import Flask, render_template, request, jsonify, session, send_from_directory
+import numpy as np
 import pandas as pd
 import jdatetime
 from dotenv import load_dotenv
@@ -230,6 +232,123 @@ ALLOWED_PROCESS_TAGS = [
     "TTA521", "TTA522", "TTA523", "TTA524", "TTA525", "TTA526", "TTA527", "TTA528", "TTA529", "TTA5210",
 ]
 
+def _json_safe_number(v):
+    """
+    Return a JSON-safe numeric value: Python None for NaN/missing, so JSON renders as null.
+    Industrial practice: never serialize Pandas/NumPy NaN into JSON (breaks JS parsing).
+    """
+    if v is None:
+        return None
+    if isinstance(v, float) and (pd.isna(v) or math.isnan(v)):
+        return None
+    try:
+        f = float(v)
+        if math.isnan(f):
+            return None
+        return f
+    except (TypeError, ValueError):
+        return None
+
+
+def _build_analytics_window(runner, predictions, session_freq):
+    """
+    Build the 17-point sliding window for the Advanced Analytics panel.
+    Layout: past 8 (t-8..t-1), current (t), future 8 (h1..h8).
+    Returns (list of 17 dicts, mae_md_past, mae_c_past).
+    - Future steps (indices 9–16): pred_md and pred_c are always None (no mocked data).
+    - All values are JSON-safe: NaN/NaT converted to None so JSON emits null.
+    """
+    WINDOW_LEN = 17
+    PAST, CURRENT, FUTURE = 8, 1, 8
+    center = runner.current_index - 1  # step we just displayed (before get_next_step)
+    start_idx = max(0, center - PAST)
+    end_idx = min(runner.total_rows, start_idx + WINDOW_LEN)
+    df = runner.df
+
+    def _get(row, col, default=None):
+        if row is None or col not in row:
+            return default
+        v = row.get(col)
+        if v is None or (isinstance(v, float) and pd.isna(v)):
+            return default
+        try:
+            f = float(v)
+            return None if math.isnan(f) else f
+        except (TypeError, ValueError):
+            return default
+
+    def _time_display(row):
+        if row is None:
+            return "—"
+        g = row.get("georgian_datetime")
+        if g is None or (isinstance(g, float) and pd.isna(g)):
+            return "—"
+        try:
+            dt = pd.to_datetime(g)
+            return dt.strftime("%H:%M")
+        except Exception:
+            return str(g)[:5] if g else "—"
+
+    def _json_safe_ts(v):
+        """Timestamp for JSON: None or string, never NaT/NaN."""
+        if v is None or (isinstance(v, float) and (pd.isna(v) or math.isnan(v))):
+            return None
+        if isinstance(v, pd.Timestamp):
+            return str(v)
+        return v
+
+    window = []
+    for i in range(WINDOW_LEN):
+        idx = start_idx + i
+        if idx < end_idx:
+            row = df.iloc[idx].to_dict()
+            for k, v in list(row.items()):
+                if v is None:
+                    row[k] = None
+                elif pd.isna(v) or (isinstance(v, float) and math.isnan(v)):
+                    row[k] = None
+                elif isinstance(v, (np.integer, np.int64)):
+                    row[k] = int(v)
+                elif isinstance(v, (np.floating, np.float64)):
+                    f = float(v)
+                    row[k] = None if math.isnan(f) else f
+                elif isinstance(v, pd.Timestamp):
+                    row[k] = str(v)
+        else:
+            row = None
+
+        actual_md = _get(row, "MDNC_M_D") if row else None
+        actual_c = _get(row, "MDNC_C") if row else None
+        # Prediction: only at current step (t); future steps (h1..h8) are never mocked — leave as None
+        pred_md = None
+        pred_c = None
+        if row and idx == center and predictions:
+            pred_md = _json_safe_number(predictions.get("MD"))
+            pred_c = _json_safe_number(predictions.get("C"))
+
+        window.append({
+            "timestamp": _json_safe_ts(row.get("georgian_datetime") if row else None),
+            "time_display": _time_display(row),
+            "actual_md": _json_safe_number(actual_md),
+            "pred_md": _json_safe_number(pred_md),
+            "actual_c": _json_safe_number(actual_c),
+            "pred_c": _json_safe_number(pred_c),
+        })
+
+    # MAE over past 9 points (t-8 to t)
+    past_slice = window[: PAST + CURRENT]
+    mae_md = None
+    mae_c = None
+    errs_md = [abs(p["actual_md"] - p["pred_md"]) for p in past_slice if p["actual_md"] is not None and p["pred_md"] is not None]
+    errs_c = [abs(p["actual_c"] - p["pred_c"]) for p in past_slice if p["actual_c"] is not None and p["pred_c"] is not None]
+    if errs_md:
+        mae_md = sum(errs_md) / len(errs_md)
+    if errs_c:
+        mae_c = sum(errs_c) / len(errs_c)
+
+    return window, mae_md, mae_c
+
+
 def _build_dashboard_tag_values(current_data):
     """Build a dict of tag name -> formatted value for SVG val__ elements (exact or suffix match)."""
     out = {}
@@ -268,6 +387,9 @@ def update_dashboard():
     tag_values_default["predicted-md"] = "—"
     tag_values_default["predicted-c"] = "—"
     tag_values_default["time"] = "—"
+    analytics_window = []
+    analytics_mae = {"mae_md": None, "mae_c": None}
+
     if 'session_id' not in session:
         return render_template(
             "partials/dashboard_full_oob.html",
@@ -276,6 +398,8 @@ def update_dashboard():
             predictions=None,
             progress=None,
             tag_values=tag_values_default,
+            analytics_window=analytics_window,
+            analytics_mae=analytics_mae,
             svg_content=get_svg_content(),
         )
 
@@ -290,6 +414,8 @@ def update_dashboard():
             predictions=None,
             progress=None,
             tag_values=tag_values_default,
+            analytics_window=analytics_window,
+            analytics_mae=analytics_mae,
             svg_content=get_svg_content(),
         )
 
@@ -359,6 +485,15 @@ def update_dashboard():
     else:
         tag_values["time"] = "—"
 
+    # 17-point analytics window and past-window MAE for Advanced Analytics panel
+    if runner and runner.total_rows > 0:
+        try:
+            analytics_window, mae_md, mae_c = _build_analytics_window(runner, predictions, session.get("model_frequency", DEFAULT_MODEL_FREQUENCY))
+            analytics_mae["mae_md"] = round(mae_md, 4) if mae_md is not None else None
+            analytics_mae["mae_c"] = round(mae_c, 4) if mae_c is not None else None
+        except Exception as e:
+            logger.debug("Analytics window build failed: %s", e)
+
     partial_rest = request.args.get("partial") == "rest"
 
     if partial_rest:
@@ -368,6 +503,8 @@ def update_dashboard():
             predictions=predictions,
             progress=progress,
             tag_values=tag_values,
+            analytics_window=analytics_window,
+            analytics_mae=analytics_mae,
             error=None,
         )
     return render_template(
@@ -376,6 +513,8 @@ def update_dashboard():
         predictions=predictions,
         progress=progress,
         tag_values=tag_values,
+        analytics_window=analytics_window,
+        analytics_mae=analytics_mae,
         svg_content=get_svg_content(),
         error=None,
     )

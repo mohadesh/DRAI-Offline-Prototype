@@ -21,6 +21,7 @@
     tailwind.config = { darkMode: 'class' };
   </script>
   <script src="/static/vendor/alpine.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.45.1/dist/apexcharts.min.js"></script>
   <style>[x-cloak]{display:none !important}</style>
 </head>
 <body class="min-h-screen bg-slate-100 font-sans text-slate-800 dark:bg-zinc-900 dark:text-zinc-200">
@@ -170,6 +171,9 @@
       <!-- Page 2: SVG loads once (no refresh); rest (controls, status, time, predictions) polls every 2s -->
       <div x-show="currentPage === 'monitoring'" x-transition class="min-h-0">
         <div id="dashboard-svg-container" class="w-full"></div>
+        <div id="analytics-panel-container" class="mt-4 w-full">
+          {% include 'partials/analytics_panel.html' %}
+        </div>
         <div id="dashboard-rest-container" class="mt-4 space-y-4">
           <p class="text-center text-slate-500 dark:text-zinc-400">Loading...</p>
         </div>

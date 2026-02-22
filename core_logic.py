@@ -7,6 +7,7 @@ import logging
 import subprocess
 import threading
 from pathlib import Path
+from datetime import datetime
 
 import pandas as pd
 import numpy as np
@@ -23,6 +24,9 @@ UPLOADS_DIR.mkdir(exist_ok=True)
 MAX_LINES_LOGGED = 5000
 LINES_AFTER_CAP = 500
 LOG_STDERR_LINES = 200
+
+# ثبت زمان استارت سرور برای ساخت فقط یک فایل لاگ
+_DEBUG_START_TIME = datetime.now().strftime("%Y%m%d_%H%M")
 
 # Full list of 43 features expected by the model
 PAST_COVARIATES_COLS = [
@@ -44,6 +48,49 @@ UNSCALED_FEATURES = [
     "INST_BPR_SLOPE", 
     "INST_BUSTLE_TEMP_RATE"
 ]
+
+# --- Helper Function for Debugging/Auditing ---
+def save_debug_data(data, prefix="model_input"):
+    """
+    Saves the dataframe to a CSV file if SAVE_FINAL_MODEL_INPUT is True in .env.
+    Instead of creating hundreds of files, it appends to a single accumulated log 
+    and overwrites a 'latest_window' file.
+    """
+    is_enabled = os.getenv("SAVE_FINAL_MODEL_INPUT", "False").lower() in ("true", "1", "t")
+    if not is_enabled:
+        return
+
+    try:
+        folder_name = os.getenv("DEBUG_DATA_FOLDER", "debug_model_inputs")
+        debug_dir = BASE_DIR / folder_name
+        debug_dir.mkdir(parents=True, exist_ok=True)
+
+        if hasattr(data, 'pd_dataframe'):
+            df_to_save = data.pd_dataframe()
+        elif isinstance(data, pd.DataFrame):
+            df_to_save = data
+        else:
+            df_to_save = pd.DataFrame(data)
+
+        # فایل اول: فایل تجمیعی (سطر به سطر دیتای جدید رو به انتهای فایل اضافه میکنه)
+        accumulated_file = debug_dir / f"{prefix}_accumulated_{_DEBUG_START_TIME}.csv"
+        # فقط آخرین سطر که در این قدم از شبیه‌سازی تولید شده رو میگیریم
+        last_row = df_to_save.iloc[[-1]] 
+        
+        if not accumulated_file.exists():
+            last_row.to_csv(accumulated_file, mode='w', header=True, index=True)
+            logger.info(f"[DEBUG] Started writing to accumulated log: {accumulated_file}")
+        else:
+            last_row.to_csv(accumulated_file, mode='a', header=False, index=True)
+
+        # فایل دوم: فایل لحظه‌ای (پنجره 120 تایی کامل را رونویسی میکند برای دیباگ ابعاد)
+        latest_window_file = debug_dir / f"{prefix}_latest_window.csv"
+        df_to_save.to_csv(latest_window_file, mode='w', header=True, index=True)
+
+    except Exception as e:
+        logger.error(f"[DEBUG] Failed to save debug data: {e}")
+
+# ----------------------------------------------
 
 def run_script(script_name, args):
     """
@@ -212,8 +259,6 @@ def run_inference_for_md_c(model_md, model_c, df_window, frequency="30T"):
     pellet_cols = [c for c in model_covs if c.startswith('PELLET_')]
     inst_cols_to_scale = [c for c in model_covs if c.startswith('INST_') and c not in UNSCALED_FEATURES]
 
-    logger.info(f"Model needs {len(model_covs)} cols total. Scalers will transform: {len(inst_cols_to_scale)} INST, {len(pellet_cols)} PELLET.")
-
     try:
         # Scale INST features
         if len(inst_cols_to_scale) > 0:
@@ -227,6 +272,10 @@ def run_inference_for_md_c(model_md, model_c, df_window, frequency="30T"):
             scaled_ts_pellet = scaler_pellet.transform(ts_pellet)
             cov_df[pellet_cols] = scaled_ts_pellet.values()
             
+        # --- AUDITING POINT: Save the fully processed/scaled features before creating TimeSeries ---
+        save_debug_data(cov_df, prefix=f"inference_input_{frequency}")
+        # ------------------------------------------------------------------------------------------
+
         # Reconstruct final covariate series
         covariate_series = TimeSeries.from_dataframe(cov_df[model_covs], freq=safe_freq)
     except Exception as e:
