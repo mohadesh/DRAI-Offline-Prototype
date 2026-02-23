@@ -232,6 +232,34 @@ ALLOWED_PROCESS_TAGS = [
     "TTA521", "TTA522", "TTA523", "TTA524", "TTA525", "TTA526", "TTA527", "TTA528", "TTA529", "TTA5210",
 ]
 
+# Prescriptive Analytics: subset of tags with human-readable names and units for Recommended Instructions panel
+HMI_TAG_METADATA = [
+    {"tag": "WTH15", "parameter_name": "Weight Transmitter (Feed Rate)", "unit": "ton/h"},
+    {"tag": "FTA19", "parameter_name": "Process Gas Flow", "unit": "Nm³/h"},
+    {"tag": "TTA341", "parameter_name": "Bustle Gas Temperature at Reduction Furnace", "unit": "°C"},
+    {"tag": "TTA351", "parameter_name": "Bustle Gas Temperature", "unit": "°C"},
+    {"tag": "TTA251", "parameter_name": "Reformed Gas Temperature at Mixer Inlet", "unit": "°C"},
+    {"tag": "PTA45", "parameter_name": "Pressure (BPR)", "unit": "barg"},
+    {"tag": "PDIA48", "parameter_name": "Pressure Differential", "unit": "—"},
+    {"tag": "TTA521", "parameter_name": "Zone Temp 1", "unit": "°C"},
+    {"tag": "TTA522", "parameter_name": "Zone Temp 2", "unit": "°C"},
+    {"tag": "TTA523", "parameter_name": "Zone Temp 3", "unit": "°C"},
+    {"tag": "TTA524", "parameter_name": "Zone Temp 4", "unit": "°C"},
+    {"tag": "TTA525", "parameter_name": "Zone Temp 5", "unit": "°C"},
+    {"tag": "TTA526", "parameter_name": "Zone Temp 6", "unit": "°C"},
+    {"tag": "TTA527", "parameter_name": "Zone Temp 7", "unit": "°C"},
+    {"tag": "TTA528", "parameter_name": "Zone Temp 8", "unit": "°C"},
+    {"tag": "TTA529", "parameter_name": "Zone Temp 9", "unit": "°C"},
+    {"tag": "TTA5210", "parameter_name": "Zone Temp 10", "unit": "°C"},
+    {"tag": "FTA33", "parameter_name": "Flow Transmitter", "unit": "Nm³/h"},
+    {"tag": "FTA82", "parameter_name": "Flow Transmitter 82", "unit": "Nm³/h"},
+    {"tag": "Pellet_FeO", "parameter_name": "Pellet FeO", "unit": "%"},
+    {"tag": "Pellet_CCS", "parameter_name": "Pellet CCS", "unit": "daN"},
+    {"tag": "MDNC_M_D", "parameter_name": "Metallization Degree", "unit": "%"},
+    {"tag": "MDNC_C", "parameter_name": "Carbon Content", "unit": "%"},
+]
+HMI_PRESCRIPTIVE_TAGS = [m["tag"] for m in HMI_TAG_METADATA]
+
 
 def _resolve_tag_to_column(tag, columns):
     """Find dataframe column name for a dashboard tag (exact or suffix match, case-insensitive)."""
@@ -247,6 +275,85 @@ def _resolve_tag_to_column(tag, columns):
         if c_str.upper() == tag_upper or c_str.upper().endswith(tag_upper):
             return c
     return None
+
+
+def _compute_prescriptive_recommendations(runner, lookback_steps, target_md_min, target_md_max, dist_lower_pct, dist_upper_pct):
+    """
+    Prescriptive Analytics: recommended operating ranges from historical rows that achieved target MD.
+    - Slice last lookback_steps rows up to (not including) current simulation index.
+    - Filter rows where MDNC_M_D is in [target_md_min, target_md_max].
+    - For each HMI tag, recommended range = quantiles at dist_lower_pct and dist_upper_pct of filtered data.
+    - Current value = value at current step. Sparkline = last lookback_steps values for that tag.
+    Returns (success, data_or_status).
+    """
+    if runner is None or runner.df is None or runner.df.empty:
+        return False, "no_runner"
+    df = runner.df
+    total = len(df)
+    current_index = runner.current_index
+    lookback_steps = max(1, min(int(lookback_steps), current_index or 1))
+    start_idx = max(0, current_index - lookback_steps)
+    end_idx = current_index
+    slice_df = df.iloc[start_idx:end_idx].copy()
+
+    md_col = _resolve_tag_to_column("MDNC_M_D", slice_df.columns)
+    if not md_col:
+        return False, "no_md_column"
+    slice_df["_md_numeric"] = pd.to_numeric(slice_df[md_col], errors="coerce")
+    t_min, t_max = float(target_md_min), float(target_md_max)
+    filtered = slice_df[(slice_df["_md_numeric"] >= t_min) & (slice_df["_md_numeric"] <= t_max)]
+    if filtered.empty:
+        return False, "no_data_in_md_range"
+
+    dist_lower_pct = max(0.0, min(1.0, float(dist_lower_pct)))
+    dist_upper_pct = max(0.0, min(1.0, float(dist_upper_pct)))
+    if dist_lower_pct >= dist_upper_pct:
+        dist_lower_pct, dist_upper_pct = 0.49, 0.51
+
+    current_row = df.iloc[current_index] if current_index < total else None
+    results = []
+    for meta in HMI_TAG_METADATA:
+        tag = meta["tag"]
+        col = _resolve_tag_to_column(tag, df.columns)
+        if col is None:
+            results.append({
+                "tag": tag,
+                "parameter_name": meta["parameter_name"],
+                "unit": meta["unit"],
+                "recommended_range": [None, None],
+                "current_value": None,
+                "in_range": None,
+                "sparkline_data": [],
+            })
+            continue
+        series_filtered = pd.to_numeric(filtered[col], errors="coerce").dropna()
+        if len(series_filtered) < 2:
+            rec_lo = float(series_filtered.min()) if len(series_filtered) == 1 else None
+            rec_hi = float(series_filtered.max()) if len(series_filtered) == 1 else None
+        else:
+            rec_lo = float(series_filtered.quantile(dist_lower_pct))
+            rec_hi = float(series_filtered.quantile(dist_upper_pct))
+        sparkline_series = pd.to_numeric(slice_df[col], errors="coerce")
+        sparkline_data = [None if pd.isna(v) else round(float(v), 4) for v in sparkline_series.tolist()]
+        current_val = None
+        if current_row is not None and col in current_row:
+            try:
+                current_val = round(float(pd.to_numeric(current_row[col], errors="coerce")), 4)
+            except (TypeError, ValueError):
+                pass
+        in_range = None
+        if current_val is not None and rec_lo is not None and rec_hi is not None:
+            in_range = bool(rec_lo <= current_val <= rec_hi)
+        results.append({
+            "tag": tag,
+            "parameter_name": meta["parameter_name"],
+            "unit": meta["unit"],
+            "recommended_range": [rec_lo, rec_hi],
+            "current_value": current_val,
+            "in_range": in_range,
+            "sparkline_data": sparkline_data,
+        })
+    return True, results
 
 
 def _compute_recommendation_table(df, tags, start_index=None, end_index=None):
@@ -588,6 +695,68 @@ def recommendation_generate():
         "config": config,
         "simulation_paused": was_running,
     })
+
+
+@app.route("/api/recommendations", methods=["GET", "POST"])
+def api_recommendations():
+    """
+    Prescriptive Analytics API. Accepts lookback_steps, target_md_min, target_md_max,
+    dist_lower_pct, dist_upper_pct. Returns recommended ranges and current values per tag.
+    """
+    if "session_id" not in session:
+        return jsonify({"success": False, "error": "Session not found"}), 400
+    runner = _simulation_runners.get(session["session_id"])
+    if runner is None:
+        return jsonify({"success": False, "error": "No data loaded"}), 400
+
+    if request.method == "POST":
+        data = request.get_json(silent=True) or {}
+    else:
+        data = request.args
+
+    lookback_steps = data.get("lookback_steps", 40)
+    target_md_min = data.get("target_md_min", 91.0)
+    target_md_max = data.get("target_md_max", 92.5)
+    dist_lower_pct = data.get("dist_lower_pct", 0.49)
+    dist_upper_pct = data.get("dist_upper_pct", 0.51)
+
+    try:
+        lookback_steps = int(lookback_steps)
+        target_md_min = float(target_md_min)
+        target_md_max = float(target_md_max)
+        dist_lower_pct = float(dist_lower_pct)
+        dist_upper_pct = float(dist_upper_pct)
+        if dist_lower_pct > 1:
+            dist_lower_pct /= 100.0
+        if dist_upper_pct > 1:
+            dist_upper_pct /= 100.0
+    except (TypeError, ValueError):
+        return jsonify({"success": False, "error": "Invalid parameters"}), 400
+
+    success, payload = _compute_prescriptive_recommendations(
+        runner, lookback_steps, target_md_min, target_md_max, dist_lower_pct, dist_upper_pct
+    )
+    if not success:
+        return jsonify({
+            "success": False,
+            "status": payload,
+            "message": "No historical data in this window achieved the target MD range.",
+        }), 200
+    return jsonify({
+        "success": True,
+        "recommendations": payload,
+        "config": {
+            "lookback_steps": lookback_steps,
+            "target_md_min": target_md_min,
+            "target_md_max": target_md_max,
+            "dist_lower_pct": dist_lower_pct,
+            "dist_upper_pct": dist_upper_pct,
+            "current_index": runner.current_index,
+            "total_rows": runner.total_rows,
+        },
+    })
+
+
 @app.route("/update-dashboard", methods=["GET"])
 def update_dashboard():
     """

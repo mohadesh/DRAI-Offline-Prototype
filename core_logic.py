@@ -334,7 +334,6 @@ def run_inference_for_md_c(model_md, model_c, df_window, frequency="30T"):
     try: from darts import TimeSeries
     except ImportError: return {"MD": None, "C": None}
 
-    # CHANGE HERE: Increased from 6 to 35 to satisfy Darts min_lags=24
     if df_window is None or df_window.empty or len(df_window) < 24:
         return {"MD": None, "C": None}
 
@@ -392,8 +391,7 @@ def run_inference_horizon_8(model_md, model_c, df_window, frequency="30T"):
     try: from darts import TimeSeries
     except ImportError: return {"MD": None, "C": None}
 
-    # CHANGE HERE: Increased from 6 to 35 to satisfy Darts min_lags=24
-    if df_window is None or df_window.empty or len(df_window) < 35:
+    if df_window is None or df_window.empty or len(df_window) < 24:
         return {"MD": None, "C": None}
 
     df = df_window.copy()
