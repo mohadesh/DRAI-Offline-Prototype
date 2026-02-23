@@ -101,7 +101,7 @@
       tooltip: { theme: isDark ? 'dark' : 'light', shared: true, intersect: false }
     };
 
-    // MD Main — line (predicted) + scatter (actual), Y 85–100. Sparse data: force markers so isolated points render.
+    // MD Main — line (predicted) + scatter (actual), Y 80–100 (industrial MD % scale). Sparse data: force markers so isolated points render.
     chartMdMain = new ApexCharts(document.querySelector('#chart-md-main'), {
       series: [
         { name: 'Predicted', type: 'line', data: [], color: '#2563eb' },
@@ -112,7 +112,7 @@
       markers: { size: 5, shape: 'circle', strokeWidth: 0, hover: { sizeOffset: 2 } },
       grid: baseChart.grid,
       xaxis: baseChart.xaxis,
-      yaxis: { min: 85, max: 100, labels: { style: { colors: textColor } }, title: { text: 'MD (%)', style: { color: textColor } } },
+      yaxis: { min: 80, max: 100, labels: { style: { colors: textColor } }, title: { text: 'MD (%)', style: { color: textColor } } },
       legend: baseChart.legend,
       tooltip: {
         theme: isDark ? 'dark' : 'light',

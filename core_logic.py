@@ -43,7 +43,7 @@ PAST_COVARIATES_COLS = [
 
 # No exclusions: darts_pipeline fits scaler_inst on ALL INST_ columns (including engineered).
 # Scaling must match training 100% to avoid numerical shock.
-UNSCALED_FEATURES = UNSCALED_FEATURES = [
+UNSCALED_FEATURES = [
     "INST_DELTA_T_DIFF",
     "INST_FLOW_VAR_6H",
     "INST_BPR_SLOPE",
@@ -57,7 +57,6 @@ def _safe_mean(cols, df):
     if not existing:
         return pd.Series(index=df.index, dtype=float)
     return df[existing].mean(axis=1)
-
 
 def apply_feature_engineering(df):
     """
@@ -97,11 +96,9 @@ def apply_feature_engineering(df):
 
     return df
 
-
 # --- Shared inference helpers (aligned with darts_pipeline scalers and target handling) ---
 TARGET_MD_COL = "MDNC_M_D"
 TARGET_C_COL = "MDNC_C"
-
 
 def _get_actual_scaler(scaler_target, target_col_name):
     """
@@ -120,21 +117,48 @@ def _get_actual_scaler(scaler_target, target_col_name):
         return scaler_target["C"]
     return list(scaler_target.values())[0] if scaler_target else None
 
+def _preprocess_target_like_training(series):
+    """
+    Match training logic: ffill -> bfill -> mean -> 0.0
+    Prevents the 'Zero-Fill Trap' that shocks the model.
+    """
+    s = series.copy().ffill().bfill()
+    if s.isna().any():
+        mean_val = s.mean()
+        # If mean is also NaN (entirely empty series), fallback to 0.0
+        if pd.isna(mean_val):
+            s = s.fillna(0.0)
+        else:
+            s = s.fillna(mean_val)
+    return s
 
 def _prepare_covariates(df, model_covs, scaler_inst, scaler_pellet, safe_freq, frequency_for_debug="30T"):
     from darts import TimeSeries
 
-    # 1. Apply Feature Engineering FIRST (This creates the 4 new columns)
+    # 1. Apply Feature Engineering
     df_eng = apply_feature_engineering(df).copy()
 
-    # 2. Fill missing columns with 0.0
+    # 2. Fill missing columns with NaN initially (NOT 0.0)
     for col in model_covs:
         if col not in df_eng.columns:
-            df_eng[col] = 0.0
+            df_eng[col] = np.nan
 
-    cov_df = df_eng[model_covs].fillna(0.0).copy()
+    cov_df = df_eng[model_covs].copy()
 
-    # 3. Define exactly which 4 features MUST NOT be scaled (Prevents MD Decay)
+    # FIX 2: Forward-fill and Backward-fill covariates instead of Zero-Fill Trap
+    for c in cov_df.columns:
+        cov_df[c] = cov_df[c].ffill().bfill()
+    # Fallback to 0.0 only if the entire column was originally empty
+    cov_df = cov_df.fillna(0.0)
+
+    # FIX 5: Smooth INST features to match training distribution (rolling 5)
+    inst_cols = [c for c in model_covs if c.startswith('INST_')]
+    if inst_cols:
+        cov_df[inst_cols] = cov_df[inst_cols].rolling(window=5, min_periods=1).mean()
+        # Safeguard: in case of NaNs produced at the start
+        cov_df[inst_cols] = cov_df[inst_cols].bfill().fillna(0.0)
+
+    # 3. Define exactly which features MUST NOT be scaled
     UNSCALED_FEATS = [
         "INST_DELTA_T_DIFF",
         "INST_FLOW_VAR_6H",
@@ -146,22 +170,20 @@ def _prepare_covariates(df, model_covs, scaler_inst, scaler_pellet, safe_freq, f
     pellet_cols = [c for c in model_covs if c.startswith('PELLET_')]
     inst_cols_to_scale = [c for c in model_covs if c.startswith('INST_') and c not in UNSCALED_FEATS]
 
-    # 5. Scale INST features (Passes exactly 37 features to the scaler)
+    # 5. Scale INST features
     if len(inst_cols_to_scale) > 0:
         ts_inst = TimeSeries.from_dataframe(cov_df[inst_cols_to_scale], freq=safe_freq)
         scaled_ts_inst = scaler_inst.transform(ts_inst)
         vals_inst = scaled_ts_inst.values()
-        # SAFEGUARD: Automatically handle both 2D and 3D arrays from Darts
         if vals_inst.ndim == 3:
             vals_inst = vals_inst[:, :, 0]
         cov_df[inst_cols_to_scale] = vals_inst
 
-    # 6. Scale PELLET features (Exactly 2 columns)
+    # 6. Scale PELLET features
     if len(pellet_cols) > 0:
         ts_pellet = TimeSeries.from_dataframe(cov_df[pellet_cols], freq=safe_freq)
         scaled_ts_pellet = scaler_pellet.transform(ts_pellet)
         vals_pellet = scaled_ts_pellet.values()
-        # SAFEGUARD: Automatically handle both 2D and 3D arrays
         if vals_pellet.ndim == 3:
             vals_pellet = vals_pellet[:, :, 0]
         cov_df[pellet_cols] = vals_pellet
@@ -172,11 +194,10 @@ def _prepare_covariates(df, model_covs, scaler_inst, scaler_pellet, safe_freq, f
     except Exception:
         pass
 
-    # 8. Reconstruct final covariate series with ALL 43 columns
+    # 8. Reconstruct final covariate series
     covariate_series = TimeSeries.from_dataframe(cov_df[model_covs], freq=safe_freq)
 
     return covariate_series, df_eng
-
 
 def _get_scaled_target_series(df, target_name, is_md, scaler_target, safe_freq):
     """Return target series scaled with the correct per-target scaler (same as training)."""
@@ -187,37 +208,48 @@ def _get_scaled_target_series(df, target_name, is_md, scaler_target, safe_freq):
 
     actual_scaler = _get_actual_scaler(scaler_target, target_name)
     
-    # 1. تلاش برای اسکیل کردن تک‌ستونی (در صورتی که اسکیلرها جداگانه ذخیره شده باشند)
+    # Preprocess the requested target strictly like training (NO blanket 0.0)
+    df_clean = df.copy()
+    if target_name in df_clean.columns:
+        df_clean[target_name] = _preprocess_target_like_training(df_clean[target_name])
+    else:
+        df_clean[target_name] = 0.0 # Extreme fallback
+
+    # 1. Single-column scaling attempt
     try:
-        ts_1d = TimeSeries.from_dataframe(df[[target_name]].fillna(0.0), freq=safe_freq)
+        ts_1d = TimeSeries.from_dataframe(df_clean[[target_name]], freq=safe_freq)
         if actual_scaler:
             return actual_scaler.transform(ts_1d)
         return ts_1d
     except Exception as e:
-        # اگر خطایی رخ داد، احتمالا اسکیلر انتظار 2 ستون (MD و C) را به صورت همزمان دارد
         pass
 
-    # 2. راهکار جایگزین (Fallback) برای اسکیلر 2 بُعدی (استراتژی اصلی آرمین در ترین)
+    # 2. 2D Fallback for joint scalers (Armin's training strategy)
     try:
-        # ساخت یک دیتافریم با هر دو ستون برای راضی کردن اسکیلر
-        ts_df = pd.DataFrame(index=df.index)
-        ts_df[TARGET_MD_COL] = df[TARGET_MD_COL].fillna(0.0) if TARGET_MD_COL in df.columns else 0.0
-        ts_df[TARGET_C_COL] = df[TARGET_C_COL].fillna(0.0) if TARGET_C_COL in df.columns else 0.0
+        ts_df = pd.DataFrame(index=df_clean.index)
         
+        # Safely preprocess MD
+        if TARGET_MD_COL in df_clean.columns:
+            ts_df[TARGET_MD_COL] = _preprocess_target_like_training(df_clean[TARGET_MD_COL])
+        else:
+            ts_df[TARGET_MD_COL] = 0.0
+            
+        # Safely preprocess C
+        if TARGET_C_COL in df_clean.columns:
+            ts_df[TARGET_C_COL] = _preprocess_target_like_training(df_clean[TARGET_C_COL])
+        else:
+            ts_df[TARGET_C_COL] = 0.0
+
         ts_combined = TimeSeries.from_dataframe(ts_df, freq=safe_freq)
-        
+
         if actual_scaler:
             scaled_ts_combined = actual_scaler.transform(ts_combined)
-            # استخراج فقط همان ستونی که در این لحظه نیاز داریم از خروجی اسکیل شده
             return scaled_ts_combined[target_name]
-            
+
     except Exception as e:
         logger.warning(f"Failed to scale target {target_name} even with 2D fallback, using raw: {e}")
 
-    # اگر همه راه‌ها شکست خورد (که نباید بشود)، دیتای خام برمی‌گردد
-    return TimeSeries.from_dataframe(df[[target_name]].fillna(0.0), freq=safe_freq)
-
-
+    return TimeSeries.from_dataframe(df_clean[[target_name]], freq=safe_freq)
 
 def _inverse_transform_single(pred_ts, scaler_target, is_md, safe_freq):
     """
@@ -260,7 +292,6 @@ def _inverse_transform_single(pred_ts, scaler_target, is_md, safe_freq):
         logger.error("Inverse transform failed for %s: %s", col_name, e)
         return pred_val
 
-
 def _inverse_transform_horizon(pred_ts, scaler_target, is_md, horizon, safe_freq):
     """Inverse transform multi-step prediction (n=horizon). Same scaler resolution as single-step."""
     try:
@@ -294,7 +325,6 @@ def _inverse_transform_horizon(pred_ts, scaler_target, is_md, horizon, safe_freq
         logger.error("Horizon inverse transform failed for %s: %s", col_name, e)
     return [_to_python_float(pred_ts.values()[i][0]) for i in range(horizon)]
 
-
 def _to_python_float(v):
     if v is None:
         return None
@@ -303,7 +333,6 @@ def _to_python_float(v):
         return None if (np.isnan(f) if hasattr(np, "isnan") else (f != f)) or np.isinf(f) else round(f, 3)
     except (TypeError, ValueError):
         return None
-
 
 # --- Helper Function for Debugging/Auditing ---
 def save_debug_data(data, prefix="model_input"):
