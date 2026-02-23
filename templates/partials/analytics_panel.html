@@ -60,19 +60,19 @@
       <div id="chart-md-main" class="w-full" style="height: 300px;"></div>
     </div>
 
-    {# MD diff bar chart #}
+    {# MD diff bar chart — legend in footer, minimal top spacing #}
     <div class="border-t border-dashed border-slate-200 dark:border-zinc-700/50">
-      <div class="flex flex-wrap items-center gap-x-5 gap-y-1 bg-slate-50/40 px-5 py-2 dark:bg-zinc-800/20">
-        <p class="text-xs font-semibold text-slate-500 dark:text-zinc-500">Actual − Predicted</p>
-        <span class="flex items-center gap-1.5 text-xs font-medium text-red-500 dark:text-red-400">
-          <span class="inline-block h-2.5 w-2.5 rounded-sm bg-red-400 dark:bg-red-500" aria-hidden="true"></span>Under-predicted (+)
-        </span>
-        <span class="flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-          <span class="inline-block h-2.5 w-2.5 rounded-sm bg-emerald-400 dark:bg-emerald-500" aria-hidden="true"></span>Over-predicted (−)
-        </span>
+      <div class="px-4 pb-1 pt-0.5">
+        <div id="chart-md-diff" class="w-full" style="height: 160px;"></div>
       </div>
-      <div class="px-4 pb-4 pt-1">
-        <div id="chart-md-diff" class="w-full" style="height: 140px;"></div>
+      <div class="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 border-t border-slate-100 bg-slate-50/40 px-4 py-2 dark:border-zinc-700/40 dark:bg-zinc-800/20">
+        <p class="text-xs font-semibold text-slate-500 dark:text-zinc-500">Actual − Predicted</p>
+        <span class="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+          <span class="inline-block h-2.5 w-2.5 rounded-sm bg-amber-400 dark:bg-amber-500" aria-hidden="true"></span>Under-predicted (+)
+        </span>
+        <span class="flex items-center gap-1.5 text-xs font-medium text-indigo-600 dark:text-indigo-400">
+          <span class="inline-block h-2.5 w-2.5 rounded-sm bg-indigo-400 dark:bg-indigo-500" aria-hidden="true"></span>Over-predicted (−)
+        </span>
       </div>
     </div>
   </div>
@@ -101,19 +101,19 @@
       <div id="chart-c-main" class="w-full" style="height: 300px;"></div>
     </div>
 
-    {# C diff bar chart #}
+    {# C diff bar chart — legend in footer, minimal top spacing #}
     <div class="border-t border-dashed border-slate-200 dark:border-zinc-700/50">
-      <div class="flex flex-wrap items-center gap-x-5 gap-y-1 bg-slate-50/40 px-5 py-2 dark:bg-zinc-800/20">
-        <p class="text-xs font-semibold text-slate-500 dark:text-zinc-500">Actual − Predicted</p>
-        <span class="flex items-center gap-1.5 text-xs font-medium text-red-500 dark:text-red-400">
-          <span class="inline-block h-2.5 w-2.5 rounded-sm bg-red-400 dark:bg-red-500" aria-hidden="true"></span>Under-predicted (+)
-        </span>
-        <span class="flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-          <span class="inline-block h-2.5 w-2.5 rounded-sm bg-emerald-400 dark:bg-emerald-500" aria-hidden="true"></span>Over-predicted (−)
-        </span>
+      <div class="px-4 pb-1 pt-0.5">
+        <div id="chart-c-diff" class="w-full" style="height: 160px;"></div>
       </div>
-      <div class="px-4 pb-4 pt-1">
-        <div id="chart-c-diff" class="w-full" style="height: 140px;"></div>
+      <div class="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 border-t border-slate-100 bg-slate-50/40 px-4 py-2 dark:border-zinc-700/40 dark:bg-zinc-800/20">
+        <p class="text-xs font-semibold text-slate-500 dark:text-zinc-500">Actual − Predicted</p>
+        <span class="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+          <span class="inline-block h-2.5 w-2.5 rounded-sm bg-amber-400 dark:bg-amber-500" aria-hidden="true"></span>Under-predicted (+)
+        </span>
+        <span class="flex items-center gap-1.5 text-xs font-medium text-indigo-600 dark:text-indigo-400">
+          <span class="inline-block h-2.5 w-2.5 rounded-sm bg-indigo-400 dark:bg-indigo-500" aria-hidden="true"></span>Over-predicted (−)
+        </span>
       </div>
     </div>
   </div>
@@ -135,8 +135,8 @@
       predicted: '#f97316'  // orange-500   — ML model output
     },
     diff: {
-      pos:     '#ef4444',   // red-500      — Actual > Predicted (under-predicted, warning)
-      neg:     '#22c55e',   // green-500    — Actual < Predicted (over-predicted, good)
+      pos:     '#f59e0b',   // amber-500    — Actual > Predicted (under-predicted)
+      neg:     '#6366f1',   // indigo-500   — Actual < Predicted (over-predicted)
       neutral: '#94a3b8'    // slate-400    — no data
     }
   };
@@ -285,35 +285,101 @@
     };
   }
 
-  // ── Data label config for line charts ─────────────────────────────────────
-  function lineDataLabels(predColor, actualColor) {
+  // ── Line chart annotation: colored pill background, white text ────────────
+  // offsetY < 0 → above the point · offsetY > 0 → below the point
+  function lineAnnLabel(text, seriesColor, offsetY) {
     return {
-      enabled: true,
-      enabledOnSeries: [0, 1],
-      formatter: function (val) {
-        return (val === null || val === undefined) ? '' : Number(val).toFixed(2);
-      },
+      text: text,
+      offsetY: offsetY,
+      offsetX: 0,
+      borderColor: 'transparent',
       style: {
-        fontSize: '9.5px',
+        color: '#ffffff',
+        background: seriesColor,
+        fontSize: '10px',
         fontWeight: 700,
-        colors: [predColor, actualColor]
-      },
-      background: {
-        enabled: true,
-        foreColor: '#fff',
-        padding: 2,
-        borderRadius: 3,
-        borderWidth: 0,
-        opacity: 0.82
-      },
-      offsetY: -10
+        padding: { top: 2, bottom: 2, left: 5, right: 5 },
+        borderRadius: 3
+      }
     };
+  }
+
+  // ── Diff bar annotation: NO background, text colored to match bar ──────────
+  // Positive bar → label just above bar top  (offsetY -5)
+  // Negative bar → label just below bar bottom (offsetY +7)
+  function diffAnnLabel(text, barColor, offsetY) {
+    return {
+      text: text,
+      offsetY: offsetY,
+      offsetX: 0,
+      borderColor: 'transparent',
+      style: {
+        color: barColor,      // text matches bar color — readable on chart bg
+        background: 'transparent',
+        fontSize: '10.5px',
+        fontWeight: 800,
+        padding: { top: 0, bottom: 0, left: 2, right: 2 }
+      }
+    };
+  }
+
+  // ── Build point annotations for line charts ────────────────────────────────
+  // Rule: at each x-index, the series with the HIGHER value → label ABOVE (-18)
+  //       the series with the LOWER value → label BELOW (+20).
+  //       When only one series has data at a point, it always goes above.
+  function buildLineAnnotations(categories, predArr, actualArr, predColor, actualColor, precision) {
+    var points = [];
+    for (var i = 0; i < 17; i++) {
+      var cat = categories[i];
+      var pv  = predArr[i];
+      var av  = actualArr[i];
+      if (pv === null && av === null) continue;
+
+      if (pv !== null && av !== null) {
+        var predIsHigher = pv >= av;
+        points.push({
+          x: cat, y: pv, marker: { size: 0 },
+          label: lineAnnLabel(Number(pv).toFixed(precision), predColor, predIsHigher ? -18 : 28)
+        });
+        points.push({
+          x: cat, y: av, marker: { size: 0 },
+          label: lineAnnLabel(Number(av).toFixed(precision), actualColor, predIsHigher ? 28 : -18)
+        });
+      } else if (pv !== null) {
+        points.push({
+          x: cat, y: pv, marker: { size: 0 },
+          label: lineAnnLabel(Number(pv).toFixed(precision), predColor, -18)
+        });
+      } else {
+        points.push({
+          x: cat, y: av, marker: { size: 0 },
+          label: lineAnnLabel(Number(av).toFixed(precision), actualColor, -18)
+        });
+      }
+    }
+    return points;
+  }
+
+  // ── Build point annotations for diff bar charts ───────────────────────────
+  // Positive bar → label just ABOVE bar top   (offsetY -5)
+  // Negative bar → label BELOW bar bottom, lower to avoid overlap (offsetY +22)
+  function buildDiffAnnotations(categories, diffArr, precision) {
+    var points = [];
+    for (var i = 0; i < 17; i++) {
+      var cat = categories[i];
+      var val = diffArr[i];
+      if (val === null) continue;
+      var color = val >= 0 ? COLORS.diff.pos : COLORS.diff.neg;
+      var text  = (val >= 0 ? '+' : '') + Number(val).toFixed(precision);
+      var offY  = val >= 0 ? -5 : 22;
+      points.push({ x: cat, y: val, marker: { size: 0 }, label: diffAnnLabel(text, color, offY) });
+    }
+    return points;
   }
 
   // ── Init all four charts ───────────────────────────────────────────────────
   function initCharts() {
     refreshTheme();
-    var cats17 = Array(17).fill('—');
 
     // ── MD Main ──
     var bMdMain = baseChart(300, 'md-group');
@@ -322,8 +388,8 @@
         { name: 'Predicted', type: 'line', data: [], color: COLORS.md.predicted },
         { name: 'Actual',    type: 'line', data: [], color: COLORS.md.actual    }
       ],
-      chart:        bMdMain.chart,
-      stroke:       { curve: 'straight', width: [2.5, 2.5], dashArray: [5, 0] },
+      chart:      bMdMain.chart,
+      stroke:     { curve: 'straight', width: [2.5, 2.5], dashArray: [5, 0] },
       markers: {
         size: [4, 5],
         shape: 'circle',
@@ -331,9 +397,9 @@
         strokeColors: [COLORS.md.predicted + '55', COLORS.md.actual + '55'],
         hover: { sizeOffset: 3 }
       },
-      dataLabels:   lineDataLabels(COLORS.md.predicted, COLORS.md.actual),
-      grid:         bMdMain.grid,
-      xaxis:        bMdMain.xaxis,
+      dataLabels: { enabled: false },
+      grid:       bMdMain.grid,
+      xaxis:      bMdMain.xaxis,
       yaxis: {
         min: 80, max: 100,
         labels: {
@@ -353,7 +419,7 @@
     chartMdMain.render();
 
     // ── MD Diff (signed: Actual − Predicted, future h1-h8 only) ──
-    var bMdDiff = baseChart(140, 'md-group');
+    var bMdDiff = baseChart(160, 'md-group');
     chartMdDiff = new ApexCharts(document.querySelector('#chart-md-diff'), {
       series: [{ name: 'Actual − Predicted', type: 'bar', data: [] }],
       chart: bMdDiff.chart,
@@ -362,20 +428,9 @@
         if (v === null || v === undefined || isNaN(v)) return COLORS.diff.neutral;
         return v >= 0 ? COLORS.diff.pos : COLORS.diff.neg;
       }],
-      plotOptions: {
-        bar: { columnWidth: '52%', borderRadius: 3, distributed: false }
-      },
-      dataLabels: {
-        enabled: true,
-        formatter: function (val) {
-          if (val === null || val === undefined || isNaN(val)) return '';
-          return (val >= 0 ? '+' : '') + Number(val).toFixed(2);
-        },
-        style: { fontSize: '9px', fontWeight: 700, colors: [textColor] },
-        background: { enabled: false },
-        offsetY: -4
-      },
-      grid: Object.assign({}, bMdDiff.grid, { padding: { top: 4, right: 14, bottom: 0, left: 4 } }),
+      plotOptions: { bar: { columnWidth: '52%', borderRadius: 3 } },
+      dataLabels:  { enabled: false },
+      grid: Object.assign({}, bMdDiff.grid, { padding: { top: 6, right: 14, bottom: 4, left: 4 } }),
       xaxis: bMdDiff.xaxis,
       yaxis: {
         labels: {
@@ -402,8 +457,8 @@
         { name: 'Predicted', type: 'line', data: [], color: COLORS.c.predicted },
         { name: 'Actual',    type: 'line', data: [], color: COLORS.c.actual    }
       ],
-      chart:        bCMain.chart,
-      stroke:       { curve: 'straight', width: [2.5, 2.5], dashArray: [5, 0] },
+      chart:      bCMain.chart,
+      stroke:     { curve: 'straight', width: [2.5, 2.5], dashArray: [5, 0] },
       markers: {
         size: [4, 5],
         shape: 'circle',
@@ -411,9 +466,9 @@
         strokeColors: [COLORS.c.predicted + '55', COLORS.c.actual + '55'],
         hover: { sizeOffset: 3 }
       },
-      dataLabels:   lineDataLabels(COLORS.c.predicted, COLORS.c.actual),
-      grid:         bCMain.grid,
-      xaxis:        bCMain.xaxis,
+      dataLabels: { enabled: false },
+      grid:       bCMain.grid,
+      xaxis:      bCMain.xaxis,
       yaxis: {
         min: 0, max: 5,
         labels: {
@@ -433,7 +488,7 @@
     chartCMain.render();
 
     // ── C Diff ──
-    var bCDiff = baseChart(140, 'c-group');
+    var bCDiff = baseChart(160, 'c-group');
     chartCDiff = new ApexCharts(document.querySelector('#chart-c-diff'), {
       series: [{ name: 'Actual − Predicted', type: 'bar', data: [] }],
       chart: bCDiff.chart,
@@ -442,20 +497,9 @@
         if (v === null || v === undefined || isNaN(v)) return COLORS.diff.neutral;
         return v >= 0 ? COLORS.diff.pos : COLORS.diff.neg;
       }],
-      plotOptions: {
-        bar: { columnWidth: '52%', borderRadius: 3, distributed: false }
-      },
-      dataLabels: {
-        enabled: true,
-        formatter: function (val) {
-          if (val === null || val === undefined || isNaN(val)) return '';
-          return (val >= 0 ? '+' : '') + Number(val).toFixed(3);
-        },
-        style: { fontSize: '9px', fontWeight: 700, colors: [textColor] },
-        background: { enabled: false },
-        offsetY: -4
-      },
-      grid: Object.assign({}, bCDiff.grid, { padding: { top: 4, right: 14, bottom: 0, left: 4 } }),
+      plotOptions: { bar: { columnWidth: '52%', borderRadius: 3 } },
+      dataLabels:  { enabled: false },
+      grid: Object.assign({}, bCDiff.grid, { padding: { top: 6, right: 14, bottom: 4, left: 4 } }),
       xaxis: bCDiff.xaxis,
       yaxis: {
         labels: {
@@ -518,10 +562,34 @@
     var maeMd = errsMd.length ? (errsMd.reduce(function (a, b) { return a + b; }, 0) / errsMd.length).toFixed(3) : 'N/A (No Lab Data)';
     var maeC  = errsC.length  ? (errsC.reduce(function (a, b) { return a + b; }, 0)  / errsC.length).toFixed(3)  : 'N/A (No Lab Data)';
 
-    if (chartMdMain) { chartMdMain.updateOptions({ xaxis: { categories: categories } }); chartMdMain.updateSeries([{ data: predMd }, { data: actualMd }]); }
-    if (chartMdDiff) { chartMdDiff.updateOptions({ xaxis: { categories: categories } }); chartMdDiff.updateSeries([{ data: diffDataMd }]); }
-    if (chartCMain)  { chartCMain.updateOptions({ xaxis: { categories: categories } });  chartCMain.updateSeries([{ data: predC }, { data: actualC }]); }
-    if (chartCDiff)  { chartCDiff.updateOptions({ xaxis: { categories: categories } });  chartCDiff.updateSeries([{ data: diffDataC }]); }
+    if (chartMdMain) {
+      chartMdMain.updateOptions({
+        xaxis: { categories: categories },
+        annotations: { points: buildLineAnnotations(categories, predMd, actualMd, COLORS.md.predicted, COLORS.md.actual, 2) }
+      });
+      chartMdMain.updateSeries([{ data: predMd }, { data: actualMd }]);
+    }
+    if (chartMdDiff) {
+      chartMdDiff.updateOptions({
+        xaxis: { categories: categories },
+        annotations: { points: buildDiffAnnotations(categories, diffDataMd, 2) }
+      });
+      chartMdDiff.updateSeries([{ data: diffDataMd }]);
+    }
+    if (chartCMain)  {
+      chartCMain.updateOptions({
+        xaxis: { categories: categories },
+        annotations: { points: buildLineAnnotations(categories, predC, actualC, COLORS.c.predicted, COLORS.c.actual, 3) }
+      });
+      chartCMain.updateSeries([{ data: predC }, { data: actualC }]);
+    }
+    if (chartCDiff)  {
+      chartCDiff.updateOptions({
+        xaxis: { categories: categories },
+        annotations: { points: buildDiffAnnotations(categories, diffDataC, 3) }
+      });
+      chartCDiff.updateSeries([{ data: diffDataC }]);
+    }
 
     if (typeof window.updateAnalyticsKpis === 'function') window.updateAnalyticsKpis(maeMd, maeC);
   };
