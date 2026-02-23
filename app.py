@@ -232,6 +232,100 @@ ALLOWED_PROCESS_TAGS = [
     "TTA521", "TTA522", "TTA523", "TTA524", "TTA525", "TTA526", "TTA527", "TTA528", "TTA529", "TTA5210",
 ]
 
+
+def _resolve_tag_to_column(tag, columns):
+    """Find dataframe column name for a dashboard tag (exact or suffix match, case-insensitive)."""
+    cols = list(columns)
+    alias = {"Pellet_FeO": "PELLET_%FeO", "Pellet_CCS": "PELLET_CCS"}
+    if tag in alias and alias[tag] in cols:
+        return alias[tag]
+    tag_upper = str(tag).strip().upper()
+    for c in cols:
+        c_str = str(c).strip()
+        if c_str == tag or c_str.endswith(tag):
+            return c
+        if c_str.upper() == tag_upper or c_str.upper().endswith(tag_upper):
+            return c
+    return None
+
+
+def _compute_recommendation_table(df, tags, start_index=None, end_index=None):
+    """
+    Compute per-tag statistics over a slice of the session dataframe.
+    Returns list of dicts: tag, min, max, mean, std, count (all JSON-safe).
+    """
+    if df is None or df.empty:
+        return []
+    total = len(df)
+    if start_index is None:
+        start_index = 0
+    if end_index is None:
+        end_index = total
+    start_index = max(0, min(start_index, total))
+    end_index = max(start_index, min(end_index, total))
+    slice_df = df.iloc[start_index:end_index]
+
+    result = []
+    for tag in tags:
+        col = _resolve_tag_to_column(tag, slice_df.columns)
+        if col is None:
+            result.append({
+                "tag": tag,
+                "min": None,
+                "max": None,
+                "mean": None,
+                "std": None,
+                "count": 0,
+            })
+            continue
+        try:
+            s = pd.to_numeric(slice_df[col], errors="coerce").dropna()
+            count = int(len(s))
+            if count == 0:
+                result.append({"tag": tag, "min": None, "max": None, "mean": None, "std": None, "count": 0})
+                continue
+            min_val = float(s.min())
+            max_val = float(s.max())
+            mean_val = float(s.mean())
+            std_val = float(s.std()) if count > 1 else 0.0
+            result.append({
+                "tag": tag,
+                "min": round(min_val, 4),
+                "max": round(max_val, 4),
+                "mean": round(mean_val, 4),
+                "std": round(std_val, 4),
+                "count": count,
+            })
+        except Exception as e:
+            logger.debug("Recommendation stats for %s: %s", tag, e)
+            result.append({"tag": tag, "min": None, "max": None, "mean": None, "std": None, "count": 0})
+    return result
+
+
+def _build_dashboard_tag_values(current_data):
+    """Build a dict of tag name -> formatted value for SVG val__ elements (exact or suffix match)."""
+    out = {}
+    if not current_data:
+        return {tag: "—" for tag in ALLOWED_PROCESS_TAGS}
+    for tag in ALLOWED_PROCESS_TAGS:
+        value = None
+        for key, v in current_data.items():
+            key_str = str(key).strip()
+            if key_str == tag or key_str.endswith(tag):
+                if v is not None and v != "":
+                    try:
+                        f = float(v)
+                        value = f
+                        break
+                    except (TypeError, ValueError):
+                        pass
+        if value is not None:
+            out[tag] = str(int(value)) if value == int(value) else "%.2f" % value
+        else:
+            out[tag] = "—"
+    return out
+
+
 def _safe_float(val):
     """
     Cast to standard Python float for JSON. Returns None for nan/inf or invalid.
@@ -441,6 +535,59 @@ def serve_dashboard(filename):
     """Serve dashboard assets (e.g. GolgoharDashboard.svg)."""
     return send_from_directory("dashboard", filename)
 
+
+@app.route("/recommendation/generate", methods=["POST"])
+def recommendation_generate():
+    """
+    Generate recommendation table: per-tag statistics (min, max, mean, std) over a configurable
+    range of the session data. Optionally pauses simulation for consistent results.
+    """
+    if "session_id" not in session:
+        return jsonify({"success": False, "error": "Session not found"}), 400
+    runner = _simulation_runners.get(session["session_id"])
+    if runner is None:
+        return jsonify({"success": False, "error": "No data loaded"}), 400
+
+    data = request.get_json(silent=True) or {}
+    use_full = data.get("full_data", True)
+    start_index = data.get("start_index")
+    end_index = data.get("end_index")
+    total_rows = runner.total_rows
+
+    if use_full:
+        start_index = 0
+        end_index = total_rows
+    else:
+        try:
+            start_index = int(start_index) if start_index is not None else 0
+            end_index = int(end_index) if end_index is not None else total_rows
+        except (TypeError, ValueError):
+            start_index = 0
+            end_index = total_rows
+
+    # Pause simulation so the reported range does not change during view (professional UX)
+    was_running = runner.is_running and not runner.is_paused
+    if was_running:
+        runner.pause()
+
+    table = _compute_recommendation_table(
+        runner.df,
+        ALLOWED_PROCESS_TAGS,
+        start_index=start_index,
+        end_index=end_index,
+    )
+    config = {
+        "start_index": start_index,
+        "end_index": end_index,
+        "total_rows": total_rows,
+        "rows_used": max(0, end_index - start_index),
+    }
+    return jsonify({
+        "success": True,
+        "table": table,
+        "config": config,
+        "simulation_paused": was_running,
+    })
 @app.route("/update-dashboard", methods=["GET"])
 def update_dashboard():
     """
