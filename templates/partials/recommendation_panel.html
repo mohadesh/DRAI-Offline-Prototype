@@ -1,81 +1,163 @@
 {# Recommendation Panel — config (range) + Generate button + table of all dashboard tags with stats #}
-<section id="recommendation-panel" class="mt-6 w-full rounded-xl border border-slate-200 bg-white shadow-sm dark:border-zinc-600 dark:bg-zinc-900" aria-label="Recommendation">
-  <div class="border-b border-slate-200 px-4 py-3 dark:border-zinc-700">
-    <h2 class="text-lg font-semibold text-slate-800 dark:text-zinc-100">Recommendation</h2>
-    <p class="mt-0.5 text-xs text-slate-500 dark:text-zinc-400">Per-tag statistics over a selected range — same tags as the dashboard. Generate to view min/max/mean and optionally pause the simulation for consistent results.</p>
+<section id="recommendation-panel" class="mt-6 w-full overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-lg dark:border-zinc-700/50 dark:bg-zinc-900" aria-label="Recommendation">
+
+  {# ── Panel Header ── #}
+  <div class="border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-5 py-4 dark:border-zinc-700/70 dark:from-zinc-800/50 dark:to-zinc-900">
+    <div class="flex items-center gap-3">
+      <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-100 dark:bg-indigo-900/40">
+        <svg class="h-5 w-5 text-indigo-600 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+        </svg>
+      </div>
+      <div>
+        <h2 class="text-base font-bold tracking-tight text-slate-800 dark:text-zinc-100">Recommendation</h2>
+        <p class="mt-0.5 text-xs text-slate-500 dark:text-zinc-400">Per-tag statistics over a selected range — same tags as the dashboard. Generate to view min/max/mean and optionally pause the simulation for consistent results.</p>
+      </div>
+    </div>
   </div>
 
-  <div class="p-4" x-data="recommendationPanel()" x-init="init()">
-    {# Config row: full data checkbox + optional from/to steps #}
-    <div class="flex flex-wrap items-end gap-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 dark:border-zinc-600 dark:bg-zinc-800">
-      <label class="flex items-center gap-2">
-        <input type="checkbox" x-model="fullData" class="h-4 w-4 rounded border-slate-300 text-slate-700 focus:ring-slate-500 dark:border-zinc-500 dark:bg-zinc-700 dark:text-zinc-200">
-        <span class="text-sm font-medium text-slate-700 dark:text-zinc-300">Use full dataset</span>
+  <div class="p-5" x-data="recommendationPanel()" x-init="init()">
+
+    {# ── Config row ── #}
+    <div class="flex flex-wrap items-end gap-4 rounded-xl border border-slate-200/80 bg-slate-50/70 px-5 py-4 dark:border-zinc-700/50 dark:bg-zinc-800/40">
+
+      {# Use full dataset checkbox #}
+      <label class="flex cursor-pointer items-center gap-2.5 select-none">
+        <span class="relative flex h-5 w-5 items-center justify-center">
+          <input
+            type="checkbox"
+            x-model="fullData"
+            class="peer h-5 w-5 cursor-pointer rounded border-2 border-slate-300 bg-white text-indigo-600 transition
+                   checked:border-indigo-500 checked:bg-indigo-500
+                   focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2
+                   dark:border-zinc-500 dark:bg-zinc-700 dark:checked:border-indigo-500 dark:checked:bg-indigo-600
+                   dark:focus:ring-offset-zinc-900"
+          >
+        </span>
+        <span class="text-sm font-semibold text-slate-700 dark:text-zinc-200">Use full dataset</span>
       </label>
+
+      {# Step range inputs (conditional) #}
       <template x-if="!fullData">
-        <div class="flex flex-wrap items-center gap-2">
-          <label class="flex items-center gap-1.5">
-            <span class="text-xs text-slate-500 dark:text-zinc-400">From step</span>
-            <input type="number" min="0" x-model.number="startIndex" class="w-20 rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-zinc-500 dark:bg-zinc-700 dark:text-zinc-200">
+        <div class="flex flex-wrap items-center gap-3">
+          <label class="flex items-center gap-2">
+            <span class="text-xs font-medium text-slate-500 dark:text-zinc-400">From step</span>
+            <input
+              type="number" min="0" x-model.number="startIndex"
+              class="w-24 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 shadow-sm
+                     focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-300
+                     dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-200 dark:focus:border-indigo-500 dark:focus:ring-indigo-600/40"
+            >
           </label>
-          <label class="flex items-center gap-1.5">
-            <span class="text-xs text-slate-500 dark:text-zinc-400">To step</span>
-            <input type="number" min="0" x-model.number="endIndex" class="w-20 rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-zinc-500 dark:bg-zinc-700 dark:text-zinc-200">
+          <label class="flex items-center gap-2">
+            <span class="text-xs font-medium text-slate-500 dark:text-zinc-400">To step</span>
+            <input
+              type="number" min="0" x-model.number="endIndex"
+              class="w-24 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 shadow-sm
+                     focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-300
+                     dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-200 dark:focus:border-indigo-500 dark:focus:ring-indigo-600/40"
+            >
           </label>
         </div>
       </template>
+
+      {# Generate button #}
       <button
         type="button"
         @click="generate()"
         :disabled="loading"
-        class="inline-flex items-center gap-2 rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white shadow transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 disabled:opacity-50 dark:bg-zinc-600 dark:hover:bg-zinc-500 dark:focus:ring-offset-zinc-900"
+        class="ml-auto inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md
+               transition hover:bg-indigo-700 active:scale-95
+               focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2
+               disabled:cursor-not-allowed disabled:opacity-50
+               dark:bg-indigo-600 dark:hover:bg-indigo-500 dark:focus:ring-offset-zinc-900"
       >
-        <span x-show="loading" class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+        <span x-show="loading" class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" aria-hidden="true"></span>
+        <svg x-show="!loading" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+        </svg>
         <span x-text="loading ? 'Generating…' : 'Generate'"></span>
       </button>
     </div>
 
-    {# Notice when simulation was auto-paused #}
-    <p x-show="simulationPaused" class="mt-2 text-xs text-amber-600 dark:text-amber-400" x-transition>
-      Simulation was paused for consistent recommendation results. Use Resume above to continue.
-    </p>
+    {# ── Status notices ── #}
 
-    {# Config summary after generate #}
-    <p x-show="configSummary" class="mt-2 text-xs text-slate-500 dark:text-zinc-400" x-text="configSummary"></p>
+    {# Simulation paused notice #}
+    <div
+      x-show="simulationPaused"
+      x-transition:enter="transition ease-out duration-200"
+      x-transition:enter-start="opacity-0 translate-y-1"
+      x-transition:enter-end="opacity-100 translate-y-0"
+      class="mt-3 flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-700/40 dark:bg-amber-900/20"
+    >
+      <svg class="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+      </svg>
+      <p class="text-xs font-medium text-amber-700 dark:text-amber-400">
+        Simulation was paused for consistent recommendation results. Use Resume above to continue.
+      </p>
+    </div>
 
-    {# Error #}
-    <p x-show="error" class="mt-2 text-sm text-red-600 dark:text-red-400" x-text="error"></p>
+    {# Config summary #}
+    <p
+      x-show="configSummary"
+      x-transition
+      class="mt-2.5 text-xs text-slate-500 dark:text-zinc-400"
+      x-text="configSummary"
+    ></p>
 
-    {# Table: all tags + min, max, mean, std, count #}
-    <div class="mt-4 overflow-x-auto rounded-lg border border-slate-200 dark:border-zinc-600">
-      <table class="w-full min-w-[600px] text-left text-sm" x-show="table.length > 0">
-        <thead class="border-b border-slate-200 bg-slate-100 dark:border-zinc-600 dark:bg-zinc-800">
+    {# Error notice #}
+    <div
+      x-show="error"
+      x-transition
+      class="mt-3 flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 dark:border-red-700/40 dark:bg-red-900/20"
+    >
+      <svg class="mt-0.5 h-4 w-4 shrink-0 text-red-500 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      <p class="text-xs font-medium text-red-700 dark:text-red-400" x-text="error"></p>
+    </div>
+
+    {# ── Statistics Table ── #}
+    <div class="mt-4 overflow-x-auto rounded-xl border border-slate-200/80 dark:border-zinc-700/50" x-show="table.length > 0" x-transition>
+      <table class="w-full min-w-[600px] text-left text-sm">
+        <thead class="border-b border-slate-200 bg-slate-100/80 dark:border-zinc-700/60 dark:bg-zinc-800/60">
           <tr>
-            <th class="px-4 py-2 font-semibold text-slate-700 dark:text-zinc-300">Tag</th>
-            <th class="px-4 py-2 font-semibold text-slate-700 dark:text-zinc-300">Min</th>
-            <th class="px-4 py-2 font-semibold text-slate-700 dark:text-zinc-300">Max</th>
-            <th class="px-4 py-2 font-semibold text-slate-700 dark:text-zinc-300">Mean</th>
-            <th class="px-4 py-2 font-semibold text-slate-700 dark:text-zinc-300">Std</th>
-            <th class="px-4 py-2 font-semibold text-slate-700 dark:text-zinc-300">Count</th>
+            <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-zinc-300">Tag</th>
+            <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-zinc-300">Min</th>
+            <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-zinc-300">Max</th>
+            <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-zinc-300">Mean</th>
+            <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-zinc-300">Std</th>
+            <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-zinc-300">Count</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-200 dark:divide-zinc-700">
+        <tbody class="divide-y divide-slate-100 dark:divide-zinc-700/50">
           <template x-for="row in table" :key="row.tag">
-            <tr class="bg-white dark:bg-zinc-900">
-              <td class="px-4 py-2 font-medium text-slate-800 dark:text-zinc-200" x-text="row.tag"></td>
-              <td class="px-4 py-2 tabular-nums text-slate-600 dark:text-zinc-400" x-text="formatVal(row.min)"></td>
-              <td class="px-4 py-2 tabular-nums text-slate-600 dark:text-zinc-400" x-text="formatVal(row.max)"></td>
-              <td class="px-4 py-2 tabular-nums text-slate-600 dark:text-zinc-400" x-text="formatVal(row.mean)"></td>
-              <td class="px-4 py-2 tabular-nums text-slate-600 dark:text-zinc-400" x-text="formatVal(row.std)"></td>
-              <td class="px-4 py-2 tabular-nums text-slate-600 dark:text-zinc-400" x-text="row.count"></td>
+            <tr class="bg-white transition-colors hover:bg-slate-50/80 dark:bg-zinc-900 dark:hover:bg-zinc-800/50">
+              <td class="px-5 py-2.5 font-semibold text-slate-800 dark:text-zinc-200" x-text="row.tag"></td>
+              <td class="px-4 py-2.5 tabular-nums text-slate-600 dark:text-zinc-400" x-text="formatVal(row.min)"></td>
+              <td class="px-4 py-2.5 tabular-nums text-slate-600 dark:text-zinc-400" x-text="formatVal(row.max)"></td>
+              <td class="px-4 py-2.5 tabular-nums font-medium text-slate-700 dark:text-zinc-300" x-text="formatVal(row.mean)"></td>
+              <td class="px-4 py-2.5 tabular-nums text-slate-500 dark:text-zinc-500" x-text="formatVal(row.std)"></td>
+              <td class="px-4 py-2.5 tabular-nums text-slate-500 dark:text-zinc-500" x-text="row.count"></td>
             </tr>
           </template>
         </tbody>
       </table>
     </div>
-    <p x-show="table.length === 0 && !loading && !error" class="mt-3 text-center text-sm text-slate-500 dark:text-zinc-400">
-      Set config and click Generate to see tag statistics for the selected range.
-    </p>
+
+    {# Empty state #}
+    <div
+      x-show="table.length === 0 && !loading && !error"
+      class="mt-4 flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 py-10 dark:border-zinc-700/50 dark:bg-zinc-800/20"
+    >
+      <svg class="mb-3 h-8 w-8 text-slate-300 dark:text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+      </svg>
+      <p class="text-sm font-medium text-slate-400 dark:text-zinc-500">No data yet</p>
+      <p class="mt-1 text-xs text-slate-400 dark:text-zinc-600">Set your config and click Generate to see tag statistics.</p>
+    </div>
+
   </div>
 </section>
 
@@ -101,8 +183,7 @@ function recommendationPanel() {
     formatVal(v) {
       if (v === null || v === undefined) return '—';
       var n = Number(v);
-      if (isNaN(n)) return '—';
-      return n.toFixed(4);
+      return isNaN(n) ? '—' : n.toFixed(4);
     },
 
     async generate() {
@@ -113,10 +194,10 @@ function recommendationPanel() {
       var payload = { full_data: this.fullData };
       if (!this.fullData) {
         payload.start_index = Math.max(0, this.startIndex);
-        payload.end_index = Math.max(payload.start_index, this.endIndex);
+        payload.end_index   = Math.max(payload.start_index, this.endIndex);
       }
       try {
-        var res = await fetch('/recommendation/generate', {
+        var res  = await fetch('/recommendation/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -125,10 +206,12 @@ function recommendationPanel() {
         if (data.success) {
           this.table = data.table || [];
           var c = data.config || {};
-          this.configSummary = 'Range: steps ' + (c.start_index ?? '—') + ' to ' + (c.end_index ?? '—') + ' (rows used: ' + (c.rows_used ?? 0) + ')';
-          if (data.simulation_paused) this.simulationPaused = true;
-          if (data.simulation_paused && typeof window.dispatchEvent === 'function') {
-            window.dispatchEvent(new CustomEvent('simulation-paused'));
+          this.configSummary = 'Range: steps ' + (c.start_index ?? '—') + ' → ' + (c.end_index ?? '—') + '  (rows used: ' + (c.rows_used ?? 0) + ')';
+          if (data.simulation_paused) {
+            this.simulationPaused = true;
+            if (typeof window.dispatchEvent === 'function') {
+              window.dispatchEvent(new CustomEvent('simulation-paused'));
+            }
           }
         } else {
           this.error = data.error || 'Generate failed';

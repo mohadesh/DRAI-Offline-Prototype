@@ -1,64 +1,167 @@
-{# Advanced Analytics & Prediction Panel — below SVG, ApexCharts MD/C subplots + KPI cards #}
-<section id="analytics-panel" class="mt-6 w-full rounded-xl border border-slate-200 bg-white shadow-sm dark:border-zinc-600 dark:bg-zinc-900" aria-label="Advanced Analytics & Prediction">
-  <div class="border-b border-slate-200 px-4 py-3 dark:border-zinc-700">
-    <h2 class="text-lg font-semibold text-slate-800 dark:text-zinc-100">Advanced Analytics &amp; Prediction</h2>
-    <p class="mt-0.5 text-xs text-slate-500 dark:text-zinc-400">ML predictions vs. laboratory data — sliding 17-point window (past 8, current, future 8)</p>
-  </div>
+{# Advanced Analytics & Prediction Panel — MD/C subplots with semantic colors, data labels, signed diff bars #}
+<section id="analytics-panel" class="mt-6 w-full overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-lg dark:border-zinc-700/50 dark:bg-zinc-900" aria-label="Advanced Analytics & Prediction">
 
-  {# KPI Cards — Future horizon MAE (h1..h8) #}
-  <div class="grid grid-cols-1 gap-3 px-4 py-3 sm:grid-cols-2">
-    <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 dark:border-zinc-600 dark:bg-zinc-800">
-      <p class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-zinc-400">MD (Metallization) Overall MAE</p>
-      <p id="kpi-md-mae" class="mt-1 text-2xl font-bold tabular-nums text-slate-800 dark:text-zinc-100">—</p>
-      <p class="text-xs text-slate-500 dark:text-zinc-400">Future window (h1 to h8)</p>
-    </div>
-    <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 dark:border-zinc-600 dark:bg-zinc-800">
-      <p class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-zinc-400">Carbon Overall MAE</p>
-      <p id="kpi-c-mae" class="mt-1 text-2xl font-bold tabular-nums text-slate-800 dark:text-zinc-100">—</p>
-      <p class="text-xs text-slate-500 dark:text-zinc-400">Future window (h1 to h8)</p>
+  {# ── Panel Header ── #}
+  <div class="border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-5 py-4 dark:border-zinc-700/70 dark:from-zinc-800/50 dark:to-zinc-900">
+    <div class="flex items-center gap-3">
+      <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-100 dark:bg-violet-900/40">
+        <svg class="h-5 w-5 text-violet-600 dark:text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+        </svg>
+      </div>
+      <div>
+        <h2 class="text-base font-bold tracking-tight text-slate-800 dark:text-zinc-100">Advanced Analytics &amp; Prediction</h2>
+        <p class="mt-0.5 text-xs text-slate-500 dark:text-zinc-400">ML predictions vs. laboratory data — sliding 17-point window (past 8 · current · future 8)</p>
+      </div>
     </div>
   </div>
 
-  {# MD Section — separate scale ~85–100 #}
-  <div class="border-t border-slate-200 px-4 pb-4 pt-3 dark:border-zinc-700">
-    <h3 class="mb-3 text-sm font-semibold text-slate-700 dark:text-zinc-300">MD (Metallization Degree)</h3>
-    <div class="grid grid-cols-1 gap-2">
-      <div id="chart-md-main" class="w-full" style="height: 280px;"></div>
-      <div id="chart-md-error" class="w-full" style="height: 120px;"></div>
+  {# ── KPI Cards ── #}
+  <div class="grid grid-cols-1 gap-4 px-5 py-5 sm:grid-cols-2">
+
+    {# MD MAE Card #}
+    <div class="relative overflow-hidden rounded-xl border border-emerald-200/70 bg-gradient-to-br from-emerald-50 to-white px-5 py-4 shadow-sm dark:border-emerald-800/30 dark:from-emerald-950/40 dark:to-zinc-800/60">
+      <div class="absolute -right-4 -top-4 h-20 w-20 rounded-full bg-emerald-100/60 dark:bg-emerald-900/20"></div>
+      <p class="text-[10px] font-bold uppercase tracking-widest text-emerald-700 dark:text-emerald-400">MD Overall MAE</p>
+      <p id="kpi-md-mae" class="mt-1.5 text-2xl font-extrabold tabular-nums tracking-tight text-slate-900 dark:text-zinc-50">—</p>
+      <p class="mt-0.5 text-xs text-slate-500 dark:text-zinc-500">Metallization Degree · future h1 → h8</p>
+    </div>
+
+    {# C MAE Card #}
+    <div class="relative overflow-hidden rounded-xl border border-sky-200/70 bg-gradient-to-br from-sky-50 to-white px-5 py-4 shadow-sm dark:border-sky-800/30 dark:from-sky-950/40 dark:to-zinc-800/60">
+      <div class="absolute -right-4 -top-4 h-20 w-20 rounded-full bg-sky-100/60 dark:bg-sky-900/20"></div>
+      <p class="text-[10px] font-bold uppercase tracking-widest text-sky-700 dark:text-sky-400">Carbon Overall MAE</p>
+      <p id="kpi-c-mae" class="mt-1.5 text-2xl font-extrabold tabular-nums tracking-tight text-slate-900 dark:text-zinc-50">—</p>
+      <p class="mt-0.5 text-xs text-slate-500 dark:text-zinc-500">Carbon Content · future h1 → h8</p>
     </div>
   </div>
 
-  {# C Section — separate scale ~0–5 #}
-  <div class="border-t border-slate-200 px-4 pb-4 pt-3 dark:border-zinc-700">
-    <h3 class="mb-3 text-sm font-semibold text-slate-700 dark:text-zinc-300">C (Carbon)</h3>
-    <div class="grid grid-cols-1 gap-2">
-      <div id="chart-c-main" class="w-full" style="height: 280px;"></div>
-      <div id="chart-c-error" class="w-full" style="height: 120px;"></div>
+  {# ══════════════════════════════════════════════════════ #}
+  {# ── MD Section ── #}
+  {# ══════════════════════════════════════════════════════ #}
+  <div class="border-t border-slate-200/80 dark:border-zinc-700/50">
+
+    {# MD section header + inline legend #}
+    <div class="flex flex-wrap items-center gap-3 bg-slate-50/70 px-5 py-3 dark:bg-zinc-800/30">
+      <span class="h-4 w-1 rounded-full bg-emerald-500" aria-hidden="true"></span>
+      <h3 class="text-sm font-bold tracking-tight text-slate-700 dark:text-zinc-200">MD — Metallization Degree</h3>
+      <div class="ml-auto flex items-center gap-4 text-xs font-medium">
+        <span class="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
+          <span class="inline-block h-2 w-6 rounded-full bg-emerald-500" aria-hidden="true"></span>Actual
+        </span>
+        <span class="flex items-center gap-1.5 text-violet-700 dark:text-violet-400">
+          <span class="inline-block h-0 w-6 rounded-full border-t-2 border-dashed border-violet-500" aria-hidden="true"></span>Predicted
+        </span>
+      </div>
+    </div>
+
+    {# MD main line chart #}
+    <div class="px-4 pb-2 pt-1">
+      <div id="chart-md-main" class="w-full" style="height: 300px;"></div>
+    </div>
+
+    {# MD diff bar chart #}
+    <div class="border-t border-dashed border-slate-200 dark:border-zinc-700/50">
+      <div class="flex flex-wrap items-center gap-x-5 gap-y-1 bg-slate-50/40 px-5 py-2 dark:bg-zinc-800/20">
+        <p class="text-xs font-semibold text-slate-500 dark:text-zinc-500">Actual − Predicted</p>
+        <span class="flex items-center gap-1.5 text-xs font-medium text-red-500 dark:text-red-400">
+          <span class="inline-block h-2.5 w-2.5 rounded-sm bg-red-400 dark:bg-red-500" aria-hidden="true"></span>Under-predicted (+)
+        </span>
+        <span class="flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+          <span class="inline-block h-2.5 w-2.5 rounded-sm bg-emerald-400 dark:bg-emerald-500" aria-hidden="true"></span>Over-predicted (−)
+        </span>
+      </div>
+      <div class="px-4 pb-4 pt-1">
+        <div id="chart-md-diff" class="w-full" style="height: 140px;"></div>
+      </div>
     </div>
   </div>
+
+  {# ══════════════════════════════════════════════════════ #}
+  {# ── C Section ── #}
+  {# ══════════════════════════════════════════════════════ #}
+  <div class="border-t border-slate-200/80 dark:border-zinc-700/50">
+
+    {# C section header + inline legend #}
+    <div class="flex flex-wrap items-center gap-3 bg-slate-50/70 px-5 py-3 dark:bg-zinc-800/30">
+      <span class="h-4 w-1 rounded-full bg-sky-500" aria-hidden="true"></span>
+      <h3 class="text-sm font-bold tracking-tight text-slate-700 dark:text-zinc-200">C — Carbon</h3>
+      <div class="ml-auto flex items-center gap-4 text-xs font-medium">
+        <span class="flex items-center gap-1.5 text-sky-700 dark:text-sky-400">
+          <span class="inline-block h-2 w-6 rounded-full bg-sky-500" aria-hidden="true"></span>Actual
+        </span>
+        <span class="flex items-center gap-1.5 text-orange-600 dark:text-orange-400">
+          <span class="inline-block h-0 w-6 rounded-full border-t-2 border-dashed border-orange-400" aria-hidden="true"></span>Predicted
+        </span>
+      </div>
+    </div>
+
+    {# C main line chart #}
+    <div class="px-4 pb-2 pt-1">
+      <div id="chart-c-main" class="w-full" style="height: 300px;"></div>
+    </div>
+
+    {# C diff bar chart #}
+    <div class="border-t border-dashed border-slate-200 dark:border-zinc-700/50">
+      <div class="flex flex-wrap items-center gap-x-5 gap-y-1 bg-slate-50/40 px-5 py-2 dark:bg-zinc-800/20">
+        <p class="text-xs font-semibold text-slate-500 dark:text-zinc-500">Actual − Predicted</p>
+        <span class="flex items-center gap-1.5 text-xs font-medium text-red-500 dark:text-red-400">
+          <span class="inline-block h-2.5 w-2.5 rounded-sm bg-red-400 dark:bg-red-500" aria-hidden="true"></span>Under-predicted (+)
+        </span>
+        <span class="flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+          <span class="inline-block h-2.5 w-2.5 rounded-sm bg-emerald-400 dark:bg-emerald-500" aria-hidden="true"></span>Over-predicted (−)
+        </span>
+      </div>
+      <div class="px-4 pb-4 pt-1">
+        <div id="chart-c-diff" class="w-full" style="height: 140px;"></div>
+      </div>
+    </div>
+  </div>
+
 </section>
 
 <script>
-(function() {
+(function () {
   'use strict';
 
-  var isDark = document.documentElement.classList.contains('dark');
-  var gridColor = isDark ? '#3f3f46' : '#e2e8f0';
-  var textColor = isDark ? '#e4e4e7' : '#475569';
-  var tooltipBg = isDark ? '#27272a' : '#ffffff';
-  var tooltipBorder = isDark ? '#52525b' : '#e2e8f0';
+  // ── Semantic color palette ──────────────────────────────────────────────────
+  var COLORS = {
+    md: {
+      actual:    '#10b981', // emerald-500  — real laboratory measurement
+      predicted: '#8b5cf6'  // violet-500   — ML model output
+    },
+    c: {
+      actual:    '#0ea5e9', // sky-500      — real laboratory measurement
+      predicted: '#f97316'  // orange-500   — ML model output
+    },
+    diff: {
+      pos:     '#ef4444',   // red-500      — Actual > Predicted (under-predicted, warning)
+      neg:     '#22c55e',   // green-500    — Actual < Predicted (over-predicted, good)
+      neutral: '#94a3b8'    // slate-400    — no data
+    }
+  };
 
-  // Last received 17-point data for tooltip lookups
+  // ── Theme-reactive color tokens ────────────────────────────────────────────
+  var isDark, gridColor, textColor, tooltipBg, tooltipBorder;
+
+  function refreshTheme() {
+    isDark        = document.documentElement.classList.contains('dark');
+    gridColor     = isDark ? '#3f3f46' : '#e2e8f0';
+    textColor     = isDark ? '#a1a1aa' : '#64748b';
+    tooltipBg     = isDark ? '#18181b' : '#ffffff';
+    tooltipBorder = isDark ? '#3f3f46' : '#e2e8f0';
+  }
+  refreshTheme();
+
+  // ── Chart instances ────────────────────────────────────────────────────────
+  var chartMdMain = null;
+  var chartMdDiff = null;
+  var chartCMain  = null;
+  var chartCDiff  = null;
+
   var lastDataArray = [];
 
-  function themeColors() {
-    isDark = document.documentElement.classList.contains('dark');
-    gridColor = isDark ? '#3f3f46' : '#e2e8f0';
-    textColor = isDark ? '#e4e4e7' : '#475569';
-    tooltipBg = isDark ? '#27272a' : '#ffffff';
-    tooltipBorder = isDark ? '#52525b' : '#e2e8f0';
-  }
-
+  // ── Utilities ──────────────────────────────────────────────────────────────
   function formatTime(ts) {
     if (ts == null || ts === '') return '—';
     if (typeof ts === 'string' && /^\d{2}:\d{2}$/.test(ts)) return ts;
@@ -73,175 +176,315 @@
   }
 
   function horizonLabel(i) {
-    if (i >= 9 && i <= 16) return 'h' + (i - 8);
-    return '';
+    return (i >= 9 && i <= 16) ? 'h' + (i - 8) : '';
   }
 
-  var chartMdMain = null;
-  var chartMdError = null;
-  var chartCMain = null;
-  var chartCError = null;
-
   function buildCategories(arr) {
-    return (arr || []).map(function(p) {
-      if (p && p.time_display) return p.time_display;
-      return formatTime(p && p.timestamp);
+    return (arr || []).map(function (p) {
+      return (p && p.time_display) ? p.time_display : formatTime(p && p.timestamp);
     });
   }
 
-  function initCharts() {
-    themeColors();
-    var categories = Array(17).fill('—');
+  function safeNum(v) {
+    if (v == null) return null;
+    var n = Number(v);
+    return isNaN(n) ? null : n;
+  }
 
-    var baseChart = {
-      chart: { fontFamily: 'inherit', toolbar: { show: false }, zoom: { enabled: false } },
-      grid: { borderColor: gridColor, strokeDashArray: 2, xaxis: { lines: { show: true } }, yaxis: { lines: { show: true } } },
-      xaxis: { categories: categories, labels: { style: { colors: textColor }, rotate: -45 }, tickAmount: 16, crosshairs: { show: true } },
-      legend: { labels: { colors: textColor }, position: 'top', horizontalAlign: 'right' },
-      tooltip: { theme: isDark ? 'dark' : 'light', shared: true, intersect: false }
+  // ── Rich tooltip builder for main line charts ──────────────────────────────
+  function makeMainTooltip(row, i, opts, isC) {
+    var time = row ? formatTime(row.timestamp || row.time_display) : (opts.ctx.w.globals.labels[i] || '—');
+    var hor  = horizonLabel(i);
+    var ak   = isC ? 'actual_c' : 'actual_md';
+    var pk   = isC ? 'pred_c'   : 'pred_md';
+    var actV = row && row[ak] != null ? Number(row[ak]) : null;
+    var preV = row && row[pk] != null ? Number(row[pk]) : null;
+    var actS = actV !== null ? actV.toFixed(3) : '—';
+    var preS = preV !== null ? preV.toFixed(3) : '—';
+    var dif  = (actV !== null && preV !== null) ? (actV - preV) : null;
+    var difS = dif !== null ? ((dif >= 0 ? '+' : '') + dif.toFixed(3)) : '—';
+    var difC = dif === null ? textColor : (dif >= 0 ? COLORS.diff.pos : COLORS.diff.neg);
+    var aC   = isC ? COLORS.c.actual    : COLORS.md.actual;
+    var pC   = isC ? COLORS.c.predicted : COLORS.md.predicted;
+
+    var horBadge = hor
+      ? ' &nbsp;<span style="background:#6366f1;color:#fff;border-radius:4px;padding:1px 6px;font-size:9.5px;font-weight:700">' + hor + '</span>'
+      : '';
+
+    return [
+      '<div style="padding:10px 14px;background:' + tooltipBg + ';border:1px solid ' + tooltipBorder + ';border-radius:10px;',
+      'font-size:11.5px;font-family:inherit;min-width:190px;box-shadow:0 4px 20px rgba(0,0,0,.18)">',
+      '<div style="font-weight:700;color:' + textColor + ';margin-bottom:7px">' + time + horBadge + '</div>',
+      '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">',
+        '<span style="width:10px;height:10px;border-radius:50%;background:' + aC + ';display:inline-block"></span>',
+        '<span style="color:' + textColor + '">Actual</span>',
+        '<span style="margin-left:auto;font-weight:700;color:' + aC + '">' + actS + '</span>',
+      '</div>',
+      '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">',
+        '<span style="width:10px;height:10px;border-radius:50%;background:' + pC + ';display:inline-block;opacity:.9"></span>',
+        '<span style="color:' + textColor + '">Predicted</span>',
+        '<span style="margin-left:auto;font-weight:700;color:' + pC + '">' + preS + '</span>',
+      '</div>',
+      '<div style="border-top:1px solid ' + tooltipBorder + ';padding-top:5px;display:flex;justify-content:space-between">',
+        '<span style="color:' + textColor + ';font-size:10.5px">Actual − Predicted</span>',
+        '<span style="font-weight:700;color:' + difC + '">' + difS + '</span>',
+      '</div></div>'
+    ].join('');
+  }
+
+  // ── Compact tooltip for diff bar charts ────────────────────────────────────
+  function makeDiffTooltip(row, i, opts, isC) {
+    var time = row ? formatTime(row.timestamp || row.time_display) : (opts.ctx.w.globals.labels[i] || '—');
+    var hor  = horizonLabel(i);
+    var ak   = isC ? 'actual_c' : 'actual_md';
+    var pk   = isC ? 'pred_c'   : 'pred_md';
+    var actV = row && row[ak] != null ? Number(row[ak]) : null;
+    var preV = row && row[pk] != null ? Number(row[pk]) : null;
+    var dif  = (actV !== null && preV !== null) ? (actV - preV) : null;
+    var difS = dif !== null ? ((dif >= 0 ? '+' : '') + dif.toFixed(3)) : '—';
+    var difC = dif === null ? textColor : (dif >= 0 ? COLORS.diff.pos : COLORS.diff.neg);
+
+    return [
+      '<div style="padding:8px 12px;background:' + tooltipBg + ';border:1px solid ' + tooltipBorder + ';border-radius:8px;',
+      'font-size:11.5px;font-family:inherit;box-shadow:0 4px 14px rgba(0,0,0,.14)">',
+      '<div style="font-weight:700;color:' + textColor + ';margin-bottom:4px">' + time + (hor ? ' · ' + hor : '') + '</div>',
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px">',
+        '<span style="color:' + textColor + ';font-size:11px">Δ (Actual − Predicted)</span>',
+        '<span style="font-weight:800;color:' + difC + '">' + difS + '</span>',
+      '</div></div>'
+    ].join('');
+  }
+
+  // ── Base chart config factory ──────────────────────────────────────────────
+  function baseChart(height, group) {
+    return {
+      chart: {
+        height: height,
+        group: group,
+        fontFamily: 'inherit',
+        toolbar: { show: false },
+        zoom: { enabled: false },
+        background: 'transparent',
+        animations: { enabled: true, speed: 350, easing: 'easeinout' }
+      },
+      grid: {
+        borderColor: gridColor,
+        strokeDashArray: 3,
+        xaxis: { lines: { show: false } },
+        yaxis: { lines: { show: true } },
+        padding: { top: 8, right: 14, bottom: 0, left: 4 }
+      },
+      xaxis: {
+        categories: Array(17).fill('—'),
+        labels: { style: { colors: textColor, fontSize: '10px' }, rotate: -42, trim: true },
+        tickAmount: 16,
+        crosshairs: { show: true, stroke: { color: '#6366f1', width: 1, dashArray: 4 } },
+        axisBorder: { show: false },
+        axisTicks: { show: false }
+      }
     };
+  }
 
-    // MD Main — line (predicted) + scatter (actual), Y 80–100 (industrial MD % scale). Sparse data: force markers so isolated points render.
+  // ── Data label config for line charts ─────────────────────────────────────
+  function lineDataLabels(predColor, actualColor) {
+    return {
+      enabled: true,
+      enabledOnSeries: [0, 1],
+      formatter: function (val) {
+        return (val === null || val === undefined) ? '' : Number(val).toFixed(2);
+      },
+      style: {
+        fontSize: '9.5px',
+        fontWeight: 700,
+        colors: [predColor, actualColor]
+      },
+      background: {
+        enabled: true,
+        foreColor: '#fff',
+        padding: 2,
+        borderRadius: 3,
+        borderWidth: 0,
+        opacity: 0.82
+      },
+      offsetY: -10
+    };
+  }
+
+  // ── Init all four charts ───────────────────────────────────────────────────
+  function initCharts() {
+    refreshTheme();
+    var cats17 = Array(17).fill('—');
+
+    // ── MD Main ──
+    var bMdMain = baseChart(300, 'md-group');
     chartMdMain = new ApexCharts(document.querySelector('#chart-md-main'), {
       series: [
-        { name: 'Predicted', type: 'line', data: [], color: '#2563eb' },
-        { name: 'Actual', type: 'line', data: [], color: '#dc2626' }
+        { name: 'Predicted', type: 'line', data: [], color: COLORS.md.predicted },
+        { name: 'Actual',    type: 'line', data: [], color: COLORS.md.actual    }
       ],
-      chart: Object.assign({}, baseChart.chart, { height: 280, group: 'md-group', animations: { enabled: true } }),
-      stroke: { curve: 'straight', width: [2, 2] },
-      markers: { size: 5, shape: 'circle', strokeWidth: 0, hover: { sizeOffset: 2 } },
-      grid: baseChart.grid,
-      xaxis: baseChart.xaxis,
-      yaxis: { min: 80, max: 100, labels: { style: { colors: textColor } }, title: { text: 'MD (%)', style: { color: textColor } } },
-      legend: baseChart.legend,
+      chart:        bMdMain.chart,
+      stroke:       { curve: 'straight', width: [2.5, 2.5], dashArray: [5, 0] },
+      markers: {
+        size: [4, 5],
+        shape: 'circle',
+        strokeWidth: [2, 0],
+        strokeColors: [COLORS.md.predicted + '55', COLORS.md.actual + '55'],
+        hover: { sizeOffset: 3 }
+      },
+      dataLabels:   lineDataLabels(COLORS.md.predicted, COLORS.md.actual),
+      grid:         bMdMain.grid,
+      xaxis:        bMdMain.xaxis,
+      yaxis: {
+        min: 80, max: 100,
+        labels: {
+          style: { colors: textColor, fontSize: '11px' },
+          formatter: function (v) { return v != null ? v.toFixed(0) + '%' : ''; }
+        },
+        title: { text: 'MD (%)', style: { color: textColor, fontSize: '11px', fontWeight: 600 } }
+      },
+      legend: { show: false },
       tooltip: {
-        theme: isDark ? 'dark' : 'light',
-        shared: true,
-        intersect: false,
-        custom: function(opts) {
-          var i = opts.dataPointIndex;
-          var row = lastDataArray[i];
-          var time = row ? formatTime(row.timestamp || row.time_display) : (opts.ctx.w.globals.labels[i] || '—');
-          var hor = horizonLabel(i);
-          var actual = row && row.actual_md != null ? Number(row.actual_md).toFixed(2) : '—';
-          var pred = row && row.pred_md != null ? Number(row.pred_md).toFixed(2) : '—';
-          var err = (row && row.actual_md != null && row.pred_md != null) ? Math.abs(row.actual_md - row.pred_md).toFixed(2) : '—';
-          var line = 'Time: ' + time + (hor ? ' | Horizon: ' + hor : '') + ' | Actual: ' + actual + ' | Predicted: ' + pred + ' | Abs Error: ' + err;
-          return '<div class="apex-tooltip apex-custom" style="padding:8px 12px;background:' + tooltipBg + ';border:1px solid ' + tooltipBorder + ';border-radius:6px;font-size:12px;color:' + textColor + '">' + line + '</div>';
+        shared: true, intersect: false,
+        custom: function (opts) {
+          return makeMainTooltip(lastDataArray[opts.dataPointIndex], opts.dataPointIndex, opts, false);
         }
       }
     });
     chartMdMain.render();
 
-    // MD Error — bars only for future 8 steps (h1..h8, indices 9–16). |Actual − Predicted|.
-    chartMdError = new ApexCharts(document.querySelector('#chart-md-error'), {
-      series: [{ name: 'Abs Error', type: 'column', data: [], color: '#64748b' }],
-      chart: Object.assign({}, baseChart.chart, { height: 120, group: 'md-group', animations: { enabled: true } }),
-      plotOptions: { bar: { columnWidth: '70%', distributed: false } },
-      grid: baseChart.grid,
-      xaxis: baseChart.xaxis,
-      yaxis: {
-        min: 0,
-        labels: {
-          style: { colors: textColor },
-          formatter: function(value) { return value != null && !isNaN(value) ? Number(value).toFixed(3) : ''; }
+    // ── MD Diff (signed: Actual − Predicted, future h1-h8 only) ──
+    var bMdDiff = baseChart(140, 'md-group');
+    chartMdDiff = new ApexCharts(document.querySelector('#chart-md-diff'), {
+      series: [{ name: 'Actual − Predicted', type: 'bar', data: [] }],
+      chart: bMdDiff.chart,
+      colors: [function (ctx) {
+        var v = ctx.value;
+        if (v === null || v === undefined || isNaN(v)) return COLORS.diff.neutral;
+        return v >= 0 ? COLORS.diff.pos : COLORS.diff.neg;
+      }],
+      plotOptions: {
+        bar: { columnWidth: '52%', borderRadius: 3, distributed: false }
+      },
+      dataLabels: {
+        enabled: true,
+        formatter: function (val) {
+          if (val === null || val === undefined || isNaN(val)) return '';
+          return (val >= 0 ? '+' : '') + Number(val).toFixed(2);
         },
-        title: { text: '|Actual − Predicted|', style: { color: textColor } }
+        style: { fontSize: '9px', fontWeight: 700, colors: [textColor] },
+        background: { enabled: false },
+        offsetY: -4
+      },
+      grid: Object.assign({}, bMdDiff.grid, { padding: { top: 4, right: 14, bottom: 0, left: 4 } }),
+      xaxis: bMdDiff.xaxis,
+      yaxis: {
+        labels: {
+          style: { colors: textColor, fontSize: '10px' },
+          formatter: function (v) {
+            return (v != null && !isNaN(v)) ? (v >= 0 ? '+' : '') + Number(v).toFixed(2) : '';
+          }
+        },
+        title: { text: 'Δ (A−P)', style: { color: textColor, fontSize: '10px', fontWeight: 600 } }
       },
       legend: { show: false },
       tooltip: {
-        theme: isDark ? 'dark' : 'light',
-        custom: function(opts) {
-          var i = opts.dataPointIndex;
-          var row = lastDataArray[i];
-          var time = row ? formatTime(row.timestamp || row.time_display) : (opts.ctx.w.globals.labels[i] || '—');
-          var hor = horizonLabel(i);
-          var actual = row && row.actual_md != null ? Number(row.actual_md).toFixed(2) : '—';
-          var pred = row && row.pred_md != null ? Number(row.pred_md).toFixed(2) : '—';
-          var err = (row && row.actual_md != null && row.pred_md != null) ? Math.abs(row.actual_md - row.pred_md).toFixed(3) : '—';
-          return '<div class="apex-tooltip apex-custom" style="padding:8px 12px;background:' + tooltipBg + ';border:1px solid ' + tooltipBorder + ';border-radius:6px;font-size:12px;color:' + textColor + '">Time: ' + time + (hor ? ' | Horizon: ' + hor : '') + ' | Actual: ' + actual + ' | Predicted: ' + pred + ' | Abs Error: ' + err + '</div>';
+        custom: function (opts) {
+          return makeDiffTooltip(lastDataArray[opts.dataPointIndex], opts.dataPointIndex, opts, false);
         }
       }
     });
-    chartMdError.render();
+    chartMdDiff.render();
 
-    // C Main — line + scatter, Y 0–5. Sparse data: force markers so isolated points render.
+    // ── C Main ──
+    var bCMain = baseChart(300, 'c-group');
     chartCMain = new ApexCharts(document.querySelector('#chart-c-main'), {
       series: [
-        { name: 'Predicted', type: 'line', data: [], color: '#2563eb' },
-        { name: 'Actual', type: 'line', data: [], color: '#dc2626' }
+        { name: 'Predicted', type: 'line', data: [], color: COLORS.c.predicted },
+        { name: 'Actual',    type: 'line', data: [], color: COLORS.c.actual    }
       ],
-      chart: Object.assign({}, baseChart.chart, { height: 280, group: 'c-group', animations: { enabled: true } }),
-      stroke: { curve: 'straight', width: [2, 2] },
-      markers: { size: 5, shape: 'circle', strokeWidth: 0, hover: { sizeOffset: 2 } },
-      grid: baseChart.grid,
-      xaxis: baseChart.xaxis,
-      yaxis: { min: 0, max: 5, labels: { style: { colors: textColor } }, title: { text: 'C (%)', style: { color: textColor } } },
-      legend: baseChart.legend,
+      chart:        bCMain.chart,
+      stroke:       { curve: 'straight', width: [2.5, 2.5], dashArray: [5, 0] },
+      markers: {
+        size: [4, 5],
+        shape: 'circle',
+        strokeWidth: [2, 0],
+        strokeColors: [COLORS.c.predicted + '55', COLORS.c.actual + '55'],
+        hover: { sizeOffset: 3 }
+      },
+      dataLabels:   lineDataLabels(COLORS.c.predicted, COLORS.c.actual),
+      grid:         bCMain.grid,
+      xaxis:        bCMain.xaxis,
+      yaxis: {
+        min: 0, max: 5,
+        labels: {
+          style: { colors: textColor, fontSize: '11px' },
+          formatter: function (v) { return v != null ? v.toFixed(1) + '%' : ''; }
+        },
+        title: { text: 'C (%)', style: { color: textColor, fontSize: '11px', fontWeight: 600 } }
+      },
+      legend: { show: false },
       tooltip: {
-        theme: isDark ? 'dark' : 'light',
-        shared: true,
-        intersect: false,
-        custom: function(opts) {
-          var i = opts.dataPointIndex;
-          var row = lastDataArray[i];
-          var time = row ? formatTime(row.timestamp || row.time_display) : (opts.ctx.w.globals.labels[i] || '—');
-          var hor = horizonLabel(i);
-          var actual = row && row.actual_c != null ? Number(row.actual_c).toFixed(2) : '—';
-          var pred = row && row.pred_c != null ? Number(row.pred_c).toFixed(2) : '—';
-          var err = (row && row.actual_c != null && row.pred_c != null) ? Math.abs(row.actual_c - row.pred_c).toFixed(2) : '—';
-          return '<div class="apex-tooltip apex-custom" style="padding:8px 12px;background:' + tooltipBg + ';border:1px solid ' + tooltipBorder + ';border-radius:6px;font-size:12px;color:' + textColor + '">Time: ' + time + (hor ? ' | Horizon: ' + hor : '') + ' | Actual: ' + actual + ' | Predicted: ' + pred + ' | Abs Error: ' + err + '</div>';
+        shared: true, intersect: false,
+        custom: function (opts) {
+          return makeMainTooltip(lastDataArray[opts.dataPointIndex], opts.dataPointIndex, opts, true);
         }
       }
     });
     chartCMain.render();
 
-    // C Error — bars only for future 8 steps (h1..h8, indices 9–16).
-    chartCError = new ApexCharts(document.querySelector('#chart-c-error'), {
-      series: [{ name: 'Abs Error', type: 'column', data: [], color: '#64748b' }],
-      chart: Object.assign({}, baseChart.chart, { height: 120, group: 'c-group', animations: { enabled: true } }),
-      plotOptions: { bar: { columnWidth: '70%' } },
-      grid: baseChart.grid,
-      xaxis: baseChart.xaxis,
-      yaxis: {
-        min: 0,
-        labels: {
-          style: { colors: textColor },
-          formatter: function(value) { return value != null && !isNaN(value) ? Number(value).toFixed(3) : ''; }
+    // ── C Diff ──
+    var bCDiff = baseChart(140, 'c-group');
+    chartCDiff = new ApexCharts(document.querySelector('#chart-c-diff'), {
+      series: [{ name: 'Actual − Predicted', type: 'bar', data: [] }],
+      chart: bCDiff.chart,
+      colors: [function (ctx) {
+        var v = ctx.value;
+        if (v === null || v === undefined || isNaN(v)) return COLORS.diff.neutral;
+        return v >= 0 ? COLORS.diff.pos : COLORS.diff.neg;
+      }],
+      plotOptions: {
+        bar: { columnWidth: '52%', borderRadius: 3, distributed: false }
+      },
+      dataLabels: {
+        enabled: true,
+        formatter: function (val) {
+          if (val === null || val === undefined || isNaN(val)) return '';
+          return (val >= 0 ? '+' : '') + Number(val).toFixed(3);
         },
-        title: { text: '|Actual − Predicted|', style: { color: textColor } }
+        style: { fontSize: '9px', fontWeight: 700, colors: [textColor] },
+        background: { enabled: false },
+        offsetY: -4
+      },
+      grid: Object.assign({}, bCDiff.grid, { padding: { top: 4, right: 14, bottom: 0, left: 4 } }),
+      xaxis: bCDiff.xaxis,
+      yaxis: {
+        labels: {
+          style: { colors: textColor, fontSize: '10px' },
+          formatter: function (v) {
+            return (v != null && !isNaN(v)) ? (v >= 0 ? '+' : '') + Number(v).toFixed(3) : '';
+          }
+        },
+        title: { text: 'Δ (A−P)', style: { color: textColor, fontSize: '10px', fontWeight: 600 } }
       },
       legend: { show: false },
       tooltip: {
-        theme: isDark ? 'dark' : 'light',
-        custom: function(opts) {
-          var i = opts.dataPointIndex;
-          var row = lastDataArray[i];
-          var time = row ? formatTime(row.timestamp || row.time_display) : (opts.ctx.w.globals.labels[i] || '—');
-          var hor = horizonLabel(i);
-          var actual = row && row.actual_c != null ? Number(row.actual_c).toFixed(2) : '—';
-          var pred = row && row.pred_c != null ? Number(row.pred_c).toFixed(2) : '—';
-          var err = (row && row.actual_c != null && row.pred_c != null) ? Math.abs(row.actual_c - row.pred_c).toFixed(3) : '—';
-          return '<div class="apex-tooltip apex-custom" style="padding:8px 12px;background:' + tooltipBg + ';border:1px solid ' + tooltipBorder + ';border-radius:6px;font-size:12px;color:' + textColor + '">Time: ' + time + (hor ? ' | Horizon: ' + hor : '') + ' | Actual: ' + actual + ' | Predicted: ' + pred + ' | Abs Error: ' + err + '</div>';
+        custom: function (opts) {
+          return makeDiffTooltip(lastDataArray[opts.dataPointIndex], opts.dataPointIndex, opts, true);
         }
       }
     });
-    chartCError.render();
+    chartCDiff.render();
   }
 
-  function safeNum(v) {
-    if (v == null || v === undefined) return null;
-    var n = Number(v);
-    return (typeof n === 'number' && !isNaN(n)) ? n : null;
-  }
-
-  window.updateCharts = function(newDataArray) {
+  // ── Public API: called by backend polling ──────────────────────────────────
+  window.updateCharts = function (newDataArray) {
     if (!newDataArray || !Array.isArray(newDataArray)) return;
     var arr = newDataArray.slice();
-    if (arr.length < 17) {
-      while (arr.length < 17) arr.push({ timestamp: null, time_display: '—', actual_md: null, pred_md: null, actual_c: null, pred_c: null });
+    while (arr.length < 17) {
+      arr.push({ timestamp: null, time_display: '—', actual_md: null, pred_md: null, actual_c: null, pred_c: null });
     }
     lastDataArray = arr;
+
     var categories = buildCategories(arr);
     while (categories.length < 17) categories.push('—');
 
@@ -254,70 +497,51 @@
       predC.push(safeNum(p.pred_c));
     }
 
-    var future_errors_md = [];
-    var future_errors_c = [];
-    var future_abs_chart_data_md = new Array(17).fill(null);
-    var future_abs_chart_data_c = new Array(17).fill(null);
+    // Signed difference arrays — only future window (indices 9–16)
+    var diffDataMd = new Array(17).fill(null);
+    var diffDataC  = new Array(17).fill(null);
+    var errsMd = [], errsC = [];
+
     for (var j = 9; j < 17; j++) {
-      var actMd = actualMd[j];
-      var predMdVal = predMd[j];
-      if (actMd !== null && predMdVal !== null && !isNaN(actMd) && !isNaN(predMdVal)) {
-        var errMd = Math.abs(actMd - predMdVal);
-        future_errors_md.push(errMd);
-        future_abs_chart_data_md[j] = parseFloat(errMd.toFixed(3));
+      if (actualMd[j] !== null && predMd[j] !== null) {
+        var d = actualMd[j] - predMd[j];
+        diffDataMd[j] = parseFloat(d.toFixed(3));
+        errsMd.push(Math.abs(d));
       }
-      var actC = actualC[j];
-      var predCVal = predC[j];
-      if (actC !== null && predCVal !== null && !isNaN(actC) && !isNaN(predCVal)) {
-        var errC = Math.abs(actC - predCVal);
-        future_errors_c.push(errC);
-        future_abs_chart_data_c[j] = parseFloat(errC.toFixed(3));
+      if (actualC[j] !== null && predC[j] !== null) {
+        var dc = actualC[j] - predC[j];
+        diffDataC[j] = parseFloat(dc.toFixed(3));
+        errsC.push(Math.abs(dc));
       }
     }
-    var maeMd = future_errors_md.length > 0
-      ? (future_errors_md.reduce(function(a, b) { return a + b; }, 0) / future_errors_md.length).toFixed(3)
-      : 'N/A (No Lab Data)';
-    var maeC = future_errors_c.length > 0
-      ? (future_errors_c.reduce(function(a, b) { return a + b; }, 0) / future_errors_c.length).toFixed(3)
-      : 'N/A (No Lab Data)';
 
-    console.log('Predicted MD:', predMd);
-    console.log('Predicted C:', predC);
+    var maeMd = errsMd.length ? (errsMd.reduce(function (a, b) { return a + b; }, 0) / errsMd.length).toFixed(3) : 'N/A (No Lab Data)';
+    var maeC  = errsC.length  ? (errsC.reduce(function (a, b) { return a + b; }, 0)  / errsC.length).toFixed(3)  : 'N/A (No Lab Data)';
 
-    if (chartMdMain) {
-      chartMdMain.updateOptions({ xaxis: { categories: categories } });
-      chartMdMain.updateSeries([{ data: predMd }, { data: actualMd }]);
-    }
-    if (chartMdError) {
-      chartMdError.updateOptions({ xaxis: { categories: categories } });
-      chartMdError.updateSeries([{ data: future_abs_chart_data_md }]);
-    }
-    if (chartCMain) {
-      chartCMain.updateOptions({ xaxis: { categories: categories } });
-      chartCMain.updateSeries([{ data: predC }, { data: actualC }]);
-    }
-    if (chartCError) {
-      chartCError.updateOptions({ xaxis: { categories: categories } });
-      chartCError.updateSeries([{ data: future_abs_chart_data_c }]);
-    }
-    if (typeof window.updateAnalyticsKpis === 'function') {
-      window.updateAnalyticsKpis(maeMd, maeC);
-    }
+    if (chartMdMain) { chartMdMain.updateOptions({ xaxis: { categories: categories } }); chartMdMain.updateSeries([{ data: predMd }, { data: actualMd }]); }
+    if (chartMdDiff) { chartMdDiff.updateOptions({ xaxis: { categories: categories } }); chartMdDiff.updateSeries([{ data: diffDataMd }]); }
+    if (chartCMain)  { chartCMain.updateOptions({ xaxis: { categories: categories } });  chartCMain.updateSeries([{ data: predC }, { data: actualC }]); }
+    if (chartCDiff)  { chartCDiff.updateOptions({ xaxis: { categories: categories } });  chartCDiff.updateSeries([{ data: diffDataC }]); }
+
+    if (typeof window.updateAnalyticsKpis === 'function') window.updateAnalyticsKpis(maeMd, maeC);
   };
 
-  window.updateAnalyticsKpis = function(maeMd, maeC) {
+  window.updateAnalyticsKpis = function (maeMd, maeC) {
     var elMd = document.getElementById('kpi-md-mae');
-    var elC = document.getElementById('kpi-c-mae');
-    var strMd = (maeMd != null && maeMd !== '') ? (typeof maeMd === 'string' && maeMd.indexOf('N/A') !== -1 ? maeMd : Number(maeMd).toFixed(3)) : '—';
-    var strC = (maeC != null && maeC !== '') ? (typeof maeC === 'string' && maeC.indexOf('N/A') !== -1 ? maeC : Number(maeC).toFixed(3)) : '—';
-    if (elMd) elMd.textContent = strMd;
-    if (elC) elC.textContent = strC;
+    var elC  = document.getElementById('kpi-c-mae');
+    var fmt  = function (v) {
+      if (v == null || v === '') return '—';
+      return (typeof v === 'string' && v.indexOf('N/A') !== -1) ? v : Number(v).toFixed(3);
+    };
+    if (elMd) elMd.textContent = fmt(maeMd);
+    if (elC)  elC.textContent  = fmt(maeC);
   };
 
+  // ── Boot ───────────────────────────────────────────────────────────────────
   if (typeof ApexCharts !== 'undefined') {
     initCharts();
   } else {
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
       if (typeof ApexCharts !== 'undefined') initCharts();
     });
   }
