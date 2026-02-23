@@ -1,14 +1,57 @@
-{# Prescriptive Analytics / Recommended Instructions — dark theme, actionable HMI table #}
+{# Prescriptive Analytics — table built ONCE, updates by ID only (no flicker). Mode A: lookback / Mode B: static step range. #}
 <section id="recommendation-panel" class="mt-6 w-full overflow-hidden rounded-2xl border border-zinc-600/80 bg-zinc-900 shadow-xl dark:border-zinc-600/80 dark:bg-zinc-900" aria-label="Recommended Instructions">
   <div class="border-b border-zinc-700/80 bg-zinc-800/60 px-5 py-4">
     <h2 class="text-lg font-bold tracking-tight text-zinc-100">Recommended Instructions</h2>
-    <p class="mt-0.5 text-xs text-zinc-400">Prescriptive Analytics: target MD range and distribution percentiles define recommended operating bands. Current values outside the band are highlighted.</p>
+    <p class="mt-0.5 text-xs text-zinc-400">Prescriptive Analytics: target MD range and distribution percentiles. Choose Dynamic Lookback or Static Step Range.</p>
   </div>
 
   <div class="p-5" x-data="recommendationPrescriptive()" x-init="init()" @prescriptive-fetch.window="generate()">
 
     {# ── Control bar ── #}
     <div class="flex flex-wrap items-end gap-4 rounded-xl border border-zinc-600/60 bg-zinc-800/40 px-4 py-4">
+      {# Mode: Dynamic vs Static #}
+      <div class="flex items-center gap-4 border-r border-zinc-600/60 pr-4">
+        <span class="text-xs font-medium text-zinc-400">Mode</span>
+        <label class="flex cursor-pointer items-center gap-2">
+          <input type="radio" name="rec-mode" value="lookback" x-model="rangeMode" class="border-zinc-500 bg-zinc-700 text-amber-500 focus:ring-amber-500">
+          <span class="text-xs text-zinc-300">Dynamic Lookback</span>
+        </label>
+        <label class="flex cursor-pointer items-center gap-2">
+          <input type="radio" name="rec-mode" value="static" x-model="rangeMode" class="border-zinc-500 bg-zinc-700 text-amber-500 focus:ring-amber-500">
+          <span class="text-xs text-zinc-300">Static Step Range</span>
+        </label>
+      </div>
+
+      {# Dynamic: Lookback #}
+      <template x-if="rangeMode === 'lookback'">
+        <label class="flex items-center gap-2">
+          <span class="text-xs font-medium text-zinc-400">Lookback</span>
+          <input type="number" min="1" x-model.number="lookbackSteps" class="w-20 rounded-lg border border-zinc-600 bg-zinc-700 px-2 py-1.5 text-sm text-zinc-100 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500">
+        </label>
+      </template>
+
+      {# Static: Full dataset + From/To #}
+      <template x-if="rangeMode === 'static'">
+        <div class="flex flex-wrap items-center gap-3">
+          <label class="flex cursor-pointer items-center gap-2 select-none">
+            <input type="checkbox" x-model="fullDataset" class="h-4 w-4 rounded border-zinc-500 bg-zinc-700 text-amber-500 focus:ring-amber-500">
+            <span class="text-xs font-medium text-zinc-400">Use full dataset</span>
+          </label>
+          <template x-if="!fullDataset">
+            <div class="flex items-center gap-2">
+              <label class="flex items-center gap-1.5">
+                <span class="text-xs text-zinc-500">From step</span>
+                <input type="number" min="0" x-model.number="startStep" class="w-20 rounded-lg border border-zinc-600 bg-zinc-700 px-2 py-1.5 text-sm text-zinc-100">
+              </label>
+              <label class="flex items-center gap-1.5">
+                <span class="text-xs text-zinc-500">To step</span>
+                <input type="number" min="0" x-model.number="endStep" class="w-20 rounded-lg border border-zinc-600 bg-zinc-700 px-2 py-1.5 text-sm text-zinc-100">
+              </label>
+            </div>
+          </template>
+        </div>
+      </template>
+
       <div class="flex flex-wrap items-center gap-3">
         <label class="flex items-center gap-2">
           <span class="text-xs font-medium text-zinc-400">Target MD Min</span>
@@ -19,10 +62,6 @@
           <input type="number" step="0.1" x-model.number="targetMdMax" class="w-20 rounded-lg border border-zinc-600 bg-zinc-700 px-2 py-1.5 text-sm text-zinc-100 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500">
         </label>
       </div>
-      <label class="flex items-center gap-2">
-        <span class="text-xs font-medium text-zinc-400">Lookback</span>
-        <input type="number" min="1" x-model.number="lookbackSteps" class="w-20 rounded-lg border border-zinc-600 bg-zinc-700 px-2 py-1.5 text-sm text-zinc-100 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500">
-      </label>
       <div class="flex items-center gap-2">
         <span class="text-xs font-medium text-zinc-400">Dist %</span>
         <input type="number" step="1" min="0" max="100" x-model.number="distLowerPct" class="w-14 rounded-lg border border-zinc-600 bg-zinc-700 px-2 py-1.5 text-sm text-zinc-100" placeholder="49">
@@ -33,7 +72,7 @@
         type="button"
         @click="generate()"
         :disabled="loading"
-        class="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-zinc-900 shadow-md transition hover:bg-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 focus:ring-offset-zinc-900 disabled:opacity-50"
+        class="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-zinc-900 shadow-md transition hover:bg-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 focus:ring-offset-zinc-900 disabled:cursor-not-allowed disabled:opacity-50"
       >
         <span x-show="loading" class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-zinc-900 border-t-transparent"></span>
         <span x-text="loading ? 'Generating…' : 'Generate Recommendation'"></span>
@@ -47,8 +86,8 @@
     <p x-show="message" class="mt-3 text-sm text-zinc-400" x-text="message"></p>
     <div x-show="error" class="mt-3 rounded-lg border border-red-800/60 bg-red-900/20 px-4 py-2 text-sm text-red-300" x-text="error"></div>
 
-    {# ── Data table ── #}
-    <div class="mt-4 overflow-x-auto rounded-xl border border-zinc-600/60" x-show="recommendations.length > 0" x-transition>
+    {# ── Table: tbody is built ONCE by JS; updates only change text/sparkline by ID ── #}
+    <div id="recommendation-table-wrapper" class="mt-4 overflow-x-auto rounded-xl border border-zinc-600/60" x-show="tableBuilt" x-transition>
       <table class="w-full min-w-[900px] text-left text-sm">
         <thead class="border-b border-zinc-600 bg-zinc-800/80">
           <tr>
@@ -60,39 +99,19 @@
             <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-zinc-400">Chart</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-zinc-700/60">
-          <template x-for="row in recommendations" :key="row.tag">
-            <tr
-              class="bg-zinc-900/80 transition-colors hover:bg-zinc-800/50"
-              :class="row.in_range === false ? 'bg-amber-900/10' : ''"
-            >
-              <td class="px-4 py-2.5 font-medium text-zinc-200" x-text="row.parameter_name"></td>
-              <td class="px-4 py-2.5 font-mono text-zinc-300" x-text="row.tag"></td>
-              <td class="px-4 py-2.5 text-zinc-400" x-text="row.unit"></td>
-              <td class="px-4 py-2.5">
-                <span class="font-medium tabular-nums text-amber-400/90" x-text="formatRange(row.recommended_range)"></span>
-              </td>
-              <td class="px-4 py-2.5">
-                <span
-                  class="tabular-nums font-semibold"
-                  :class="currentValueClass(row)"
-                  x-text="formatCurrent(row.current_value)"
-                ></span>
-              </td>
-              <td class="px-4 py-2 w-40">
-                <div class="sparkline-container h-10 w-full" :data-tag="row.tag" x-ref="sparklineContainer"></div>
-              </td>
-            </tr>
-          </template>
+        <tbody id="recommendation-tbody" class="divide-y divide-zinc-700/60">
+          {# Rows are injected once by JS; do not use x-for #}
         </tbody>
       </table>
     </div>
 
     <div
-      x-show="recommendations.length === 0 && !loading && !error"
+      id="recommendation-empty-state"
       class="mt-6 flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-600/60 bg-zinc-800/20 py-12"
+      x-show="!tableBuilt"
+      x-transition
     >
-      <p class="text-sm text-zinc-500">Set Target MD range and Lookback, then click Generate Recommendation.</p>
+      <p class="text-sm text-zinc-500">Choose mode (Dynamic Lookback or Static Step Range), set Target MD and Dist %, then click Generate Recommendation.</p>
       <p class="mt-1 text-xs text-zinc-600">If no rows in the window achieved the target MD, you will see a message instead of a table.</p>
     </div>
   </div>
@@ -102,8 +121,62 @@
 (function() {
   'use strict';
 
+  var TAG_META = [
+    { tag: 'WTH15', parameter_name: 'Weight Transmitter (Feed Rate)', unit: 'ton/h' },
+    { tag: 'FTA19', parameter_name: 'Process Gas Flow', unit: 'Nm³/h' },
+    { tag: 'TTA341', parameter_name: 'Bustle Gas Temperature at Reduction Furnace', unit: '°C' },
+    { tag: 'TTA351', parameter_name: 'Bustle Gas Temperature', unit: '°C' },
+    { tag: 'TTA251', parameter_name: 'Reformed Gas Temperature at Mixer Inlet', unit: '°C' },
+    { tag: 'PTA45', parameter_name: 'Pressure (BPR)', unit: 'barg' },
+    { tag: 'PDIA48', parameter_name: 'Pressure Differential', unit: '—' },
+    { tag: 'TTA521', parameter_name: 'Zone Temp 1', unit: '°C' },
+    { tag: 'TTA522', parameter_name: 'Zone Temp 2', unit: '°C' },
+    { tag: 'TTA523', parameter_name: 'Zone Temp 3', unit: '°C' },
+    { tag: 'TTA524', parameter_name: 'Zone Temp 4', unit: '°C' },
+    { tag: 'TTA525', parameter_name: 'Zone Temp 5', unit: '°C' },
+    { tag: 'TTA526', parameter_name: 'Zone Temp 6', unit: '°C' },
+    { tag: 'TTA527', parameter_name: 'Zone Temp 7', unit: '°C' },
+    { tag: 'TTA528', parameter_name: 'Zone Temp 8', unit: '°C' },
+    { tag: 'TTA529', parameter_name: 'Zone Temp 9', unit: '°C' },
+    { tag: 'TTA5210', parameter_name: 'Zone Temp 10', unit: '°C' },
+    { tag: 'FTA33', parameter_name: 'Flow Transmitter', unit: 'Nm³/h' },
+    { tag: 'FTA82', parameter_name: 'Flow Transmitter 82', unit: 'Nm³/h' },
+    { tag: 'Pellet_FeO', parameter_name: 'Pellet FeO', unit: '%' },
+    { tag: 'Pellet_CCS', parameter_name: 'Pellet CCS', unit: 'daN' },
+    { tag: 'MDNC_M_D', parameter_name: 'Metallization Degree', unit: '%' },
+    { tag: 'MDNC_C', parameter_name: 'Carbon Content', unit: '%' }
+  ];
+
+  function formatRange(r) {
+    if (!r || (r[0] == null && r[1] == null)) return '—';
+    var a = r[0] != null ? Number(r[0]).toFixed(2) : '—';
+    var b = r[1] != null ? Number(r[1]).toFixed(2) : '—';
+    return a + ' – ' + b;
+  }
+
+  function formatCurrent(v) {
+    if (v == null || v === undefined) return '—';
+    var n = Number(v);
+    return isNaN(n) ? '—' : n.toFixed(2);
+  }
+
+  function currentValueClass(inRange) {
+    if (inRange === true) return 'tabular-nums font-semibold text-emerald-400';
+    if (inRange === false) return 'tabular-nums font-semibold text-amber-400';
+    return 'tabular-nums font-semibold text-zinc-300';
+  }
+
+  function rowClass(inRange) {
+    var base = 'bg-zinc-900/80 transition-colors hover:bg-zinc-800/50';
+    return inRange === false ? base + ' bg-amber-900/10' : base;
+  }
+
   function renderSparkline(container, sparklineData, recommendedRange, isDark) {
-    if (!container || !Array.isArray(sparklineData)) return;
+    if (!container) return;
+    if (!Array.isArray(sparklineData) || sparklineData.length === 0) {
+      container.innerHTML = '<span class="text-zinc-600 text-xs">—</span>';
+      return;
+    }
     var values = sparklineData.filter(function(v) { return v != null && !isNaN(Number(v)); }).map(Number);
     if (values.length === 0) {
       container.innerHTML = '<span class="text-zinc-600 text-xs">—</span>';
@@ -137,44 +210,69 @@
       '</g></svg>';
   }
 
+  function buildTableOnce() {
+    var tbody = document.getElementById('recommendation-tbody');
+    if (!tbody || tbody.querySelector('tr')) return;
+    var frag = document.createDocumentFragment();
+    TAG_META.forEach(function(meta) {
+      var tag = meta.tag;
+      var tr = document.createElement('tr');
+      tr.id = 'row-' + tag;
+      tr.className = 'bg-zinc-900/80 transition-colors hover:bg-zinc-800/50';
+      tr.innerHTML =
+        '<td class="px-4 py-2.5 font-medium text-zinc-200">' + (meta.parameter_name || '') + '</td>' +
+        '<td class="px-4 py-2.5 font-mono text-zinc-300">' + tag + '</td>' +
+        '<td class="px-4 py-2.5 text-zinc-400">' + (meta.unit || '') + '</td>' +
+        '<td class="px-4 py-2.5"><span id="rec-range-' + tag + '" class="font-medium tabular-nums text-amber-400/90">—</span></td>' +
+        '<td class="px-4 py-2.5"><span id="current-val-' + tag + '" class="tabular-nums font-semibold text-zinc-300">—</span></td>' +
+        '<td class="px-4 py-2 w-40"><div id="sparkline-' + tag + '" class="sparkline-container h-10 w-full"></div></td>';
+      frag.appendChild(tr);
+    });
+    tbody.appendChild(frag);
+  }
+
+  function updateTableData(recommendations, isDark) {
+    if (!recommendations || !recommendations.length) return;
+    isDark = isDark !== false;
+    recommendations.forEach(function(row) {
+      var tag = row.tag;
+      var recEl = document.getElementById('rec-range-' + tag);
+      var curEl = document.getElementById('current-val-' + tag);
+      var rowEl = document.getElementById('row-' + tag);
+      var sparkEl = document.getElementById('sparkline-' + tag);
+      if (recEl) recEl.textContent = formatRange(row.recommended_range);
+      if (curEl) {
+        curEl.textContent = formatCurrent(row.current_value);
+        curEl.className = currentValueClass(row.in_range);
+      }
+      if (rowEl) rowEl.className = rowClass(row.in_range);
+      if (sparkEl) renderSparkline(sparkEl, row.sparkline_data, row.recommended_range, isDark);
+    });
+  }
+
   window.recommendationPrescriptive = function() {
     return {
+      rangeMode: 'lookback',
+      lookbackSteps: 40,
+      fullDataset: false,
+      startStep: 0,
+      endStep: 500,
       targetMdMin: 91.0,
       targetMdMax: 92.5,
-      lookbackSteps: 40,
       distLowerPct: 49,
       distUpperPct: 51,
       autoUpdate: false,
       loading: false,
       error: '',
       message: '',
-      recommendations: [],
+      tableBuilt: false,
       _autoInterval: null,
 
       init: function() {
         var self = this;
         document.body.addEventListener('htmx:afterSettle', function() {
-          if (self.autoUpdate && self.recommendations.length > 0) self.generate();
+          if (self.autoUpdate && self.tableBuilt) self.generate();
         });
-      },
-
-      formatRange: function(r) {
-        if (!r || r[0] == null && r[1] == null) return '—';
-        var a = r[0] != null ? Number(r[0]).toFixed(2) : '—';
-        var b = r[1] != null ? Number(r[1]).toFixed(2) : '—';
-        return a + ' – ' + b;
-      },
-
-      formatCurrent: function(v) {
-        if (v == null || v === undefined) return '—';
-        var n = Number(v);
-        return isNaN(n) ? '—' : n.toFixed(2);
-      },
-
-      currentValueClass: function(row) {
-        if (row.in_range === true) return 'text-emerald-400';
-        if (row.in_range === false) return 'text-amber-400';
-        return 'text-zinc-300';
       },
 
       generate: function() {
@@ -182,13 +280,19 @@
         self.loading = true;
         self.error = '';
         self.message = '';
+
         var payload = {
-          lookback_steps: self.lookbackSteps,
           target_md_min: self.targetMdMin,
           target_md_max: self.targetMdMax,
           dist_lower_pct: (typeof self.distLowerPct === 'number' ? self.distLowerPct : 49) / 100,
-          dist_upper_pct: (typeof self.distUpperPct === 'number' ? self.distUpperPct : 51) / 100
+          dist_upper_pct: (typeof self.distUpperPct === 'number' ? self.distUpperPct : 51) / 100,
+          use_static_range: self.rangeMode === 'static',
+          full_dataset: self.rangeMode === 'static' && self.fullDataset,
+          start_step: self.rangeMode === 'static' && !self.fullDataset ? self.startStep : undefined,
+          end_step: self.rangeMode === 'static' && !self.fullDataset ? self.endStep : undefined,
+          lookback_steps: self.rangeMode === 'lookback' ? self.lookbackSteps : 40
         };
+
         fetch('/api/recommendations', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -196,24 +300,30 @@
         })
           .then(function(r) { return r.json(); })
           .then(function(data) {
+            self.error = '';
             if (data.success) {
-              self.recommendations = data.recommendations || [];
-              self.message = 'Lookback: ' + (data.config && data.config.lookback_steps) + ' steps · Target MD: ' + (data.config && data.config.target_md_min) + '–' + (data.config && data.config.target_md_max);
-              setTimeout(function() {
-                var isDark = document.documentElement.classList.contains('dark');
-                (self.recommendations || []).forEach(function(row) {
-                  var el = document.querySelector('.sparkline-container[data-tag="' + row.tag + '"]');
-                  if (el) renderSparkline(el, row.sparkline_data, row.recommended_range, isDark);
-                });
-              }, 80);
+              var recs = data.recommendations || [];
+              var cfg = data.config || {};
+              if (!self.tableBuilt) {
+                buildTableOnce();
+                self.tableBuilt = true;
+              }
+              updateTableData(recs, document.documentElement.classList.contains('dark'));
+              if (cfg.use_static_range) {
+                self.message = cfg.full_dataset
+                  ? 'Full dataset · Target MD ' + cfg.target_md_min + '–' + cfg.target_md_max
+                  : 'Steps ' + (cfg.start_step ?? '—') + ' to ' + (cfg.end_step ?? '—') + ' · Target MD ' + cfg.target_md_min + '–' + cfg.target_md_max;
+              } else {
+                self.message = 'Lookback: ' + (cfg.lookback_steps || '') + ' steps · Target MD ' + cfg.target_md_min + '–' + cfg.target_md_max;
+              }
             } else {
-              self.recommendations = [];
-              self.message = data.message || data.status || 'No data in target MD range.';
+              self.message = data.message || data.status || 'No historical data in this window achieved the target MD range.';
+              if (self.tableBuilt) updateTableData([]);
             }
           })
           .catch(function(e) {
-            self.error = 'Request failed: ' + e.message;
-            self.recommendations = [];
+            self.error = 'Request failed: ' + (e && e.message ? e.message : 'Unknown error');
+            self.message = '';
           })
           .finally(function() {
             self.loading = false;

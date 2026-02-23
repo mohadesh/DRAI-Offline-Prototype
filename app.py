@@ -277,13 +277,23 @@ def _resolve_tag_to_column(tag, columns):
     return None
 
 
-def _compute_prescriptive_recommendations(runner, lookback_steps, target_md_min, target_md_max, dist_lower_pct, dist_upper_pct):
+def _compute_prescriptive_recommendations(
+    runner,
+    lookback_steps,
+    target_md_min,
+    target_md_max,
+    dist_lower_pct,
+    dist_upper_pct,
+    use_static_range=False,
+    full_dataset=False,
+    start_step=None,
+    end_step=None,
+):
     """
     Prescriptive Analytics: recommended operating ranges from historical rows that achieved target MD.
-    - Slice last lookback_steps rows up to (not including) current simulation index.
-    - Filter rows where MDNC_M_D is in [target_md_min, target_md_max].
-    - For each HMI tag, recommended range = quantiles at dist_lower_pct and dist_upper_pct of filtered data.
-    - Current value = value at current step. Sparkline = last lookback_steps values for that tag.
+    Mode A (dynamic): use_static_range=False → slice = last lookback_steps rows up to current index.
+    Mode B (static): use_static_range=True → slice = full dataset (if full_dataset) or [start_step, end_step).
+    Current value is always taken from runner.current_index. Sparkline = values in the chosen slice.
     Returns (success, data_or_status).
     """
     if runner is None or runner.df is None or runner.df.empty:
@@ -291,10 +301,26 @@ def _compute_prescriptive_recommendations(runner, lookback_steps, target_md_min,
     df = runner.df
     total = len(df)
     current_index = runner.current_index
-    lookback_steps = max(1, min(int(lookback_steps), current_index or 1))
-    start_idx = max(0, current_index - lookback_steps)
-    end_idx = current_index
-    slice_df = df.iloc[start_idx:end_idx].copy()
+
+    if use_static_range:
+        if full_dataset:
+            start_idx = 0
+            end_idx = total
+        else:
+            try:
+                start_idx = max(0, min(int(start_step or 0), total))
+                end_idx = max(start_idx, min(int(end_step or total), total))
+            except (TypeError, ValueError):
+                start_idx = 0
+                end_idx = total
+        if start_idx >= end_idx:
+            return False, "no_data_in_md_range"
+        slice_df = df.iloc[start_idx:end_idx].copy()
+    else:
+        lookback_steps = max(1, min(int(lookback_steps), current_index or 1))
+        start_idx = max(0, current_index - lookback_steps)
+        end_idx = current_index
+        slice_df = df.iloc[start_idx:end_idx].copy()
 
     md_col = _resolve_tag_to_column("MDNC_M_D", slice_df.columns)
     if not md_col:
@@ -719,6 +745,10 @@ def api_recommendations():
     target_md_max = data.get("target_md_max", 92.5)
     dist_lower_pct = data.get("dist_lower_pct", 0.49)
     dist_upper_pct = data.get("dist_upper_pct", 0.51)
+    use_static_range = data.get("use_static_range", False)
+    full_dataset = data.get("full_dataset", False)
+    start_step = data.get("start_step")
+    end_step = data.get("end_step")
 
     try:
         lookback_steps = int(lookback_steps)
@@ -734,7 +764,16 @@ def api_recommendations():
         return jsonify({"success": False, "error": "Invalid parameters"}), 400
 
     success, payload = _compute_prescriptive_recommendations(
-        runner, lookback_steps, target_md_min, target_md_max, dist_lower_pct, dist_upper_pct
+        runner,
+        lookback_steps,
+        target_md_min,
+        target_md_max,
+        dist_lower_pct,
+        dist_upper_pct,
+        use_static_range=use_static_range,
+        full_dataset=full_dataset,
+        start_step=start_step,
+        end_step=end_step,
     )
     if not success:
         return jsonify({
@@ -751,6 +790,10 @@ def api_recommendations():
             "target_md_max": target_md_max,
             "dist_lower_pct": dist_lower_pct,
             "dist_upper_pct": dist_upper_pct,
+            "use_static_range": use_static_range,
+            "full_dataset": full_dataset,
+            "start_step": int(start_step) if start_step is not None else None,
+            "end_step": int(end_step) if end_step is not None else None,
             "current_index": runner.current_index,
             "total_rows": runner.total_rows,
         },
