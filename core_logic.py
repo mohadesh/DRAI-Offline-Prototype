@@ -52,7 +52,8 @@ def _safe_mean(cols, df):
 def apply_feature_engineering(df):
     """
     Replicates darts_pipeline.TimeSeriesPreprocessor.apply_engineering exactly:
-    zone temperatures, deltas, flow variance, slopes. Same formulas and column sets.
+    zone temperatures, deltas, flow variance, slopes. 
+    CRITICAL FIX: Removed premature .fillna(0) to match training distribution perfectly.
     """
     df = df.copy()
 
@@ -72,18 +73,15 @@ def apply_feature_engineering(df):
     if 'INST_DELTA_T1' in df.columns and 'INST_DELTA_T2' in df.columns:
         df['INST_DELTA_T_DIFF'] = (df['INST_DELTA_T1'] - df['INST_DELTA_T2']).abs()
 
-    # 3. Flow variance (darts uses INST_FTA19, rolling 6, std)
+    # 3. Flow variance (darts: no .fillna(0) here; NaNs filled later in fill_inst)
     if 'INST_FTA19' in df.columns:
-        df['INST_FLOW_VAR_6H'] = df['INST_FTA19'].rolling(6, min_periods=1).std().fillna(0)
+        df['INST_FLOW_VAR_6H'] = df['INST_FTA19'].rolling(6, min_periods=1).std()
 
     # 4. Slopes (same as darts_pipeline)
     if 'INST_PTA45' in df.columns:
-        df['INST_BPR_SLOPE'] = df['INST_PTA45'].diff().fillna(0)
+        df['INST_BPR_SLOPE'] = df['INST_PTA45'].diff()
     if 'INST_TTA341' in df.columns:
-        df['INST_BUSTLE_TEMP_RATE'] = df['INST_TTA341'].diff().fillna(0)
-    for col in ('INST_BPR_SLOPE', 'INST_BUSTLE_TEMP_RATE'):
-        if col in df.columns:
-            df[col] = df[col].fillna(0)
+        df['INST_BUSTLE_TEMP_RATE'] = df['INST_TTA341'].diff()
 
     return df
 
@@ -144,62 +142,120 @@ def _preprocess_target_like_training(series, target_name):
             s = s.fillna(mean_val)
     return s
 
+
+# Constants matching darts_pipeline
+INST_SMOOTH_WINDOW = 5
+MIN_INST_FILL = 1
+
+# The 4 engineered features that are NOT scaled by scaler_inst
+UNSCALED_INST_FEATURES = [
+    "INST_DELTA_T_DIFF",
+    "INST_FLOW_VAR_6H",
+    "INST_BPR_SLOPE",
+    "INST_BUSTLE_TEMP_RATE",
+]
+
+# Soft-normalizing bounds to scale the 4 features to ~[0,1] preventing high MAE
+UNSCALED_FEATURE_BOUNDS = {
+    "INST_DELTA_T_DIFF": (0.0, 50.0),
+    "INST_FLOW_VAR_6H": (0.0, 10000.0),
+    "INST_BPR_SLOPE": (-2.0, 2.0),
+    "INST_BUSTLE_TEMP_RATE": (-20.0, 20.0),
+}
+
 def _prepare_covariates(df, model_covs, scaler_inst, scaler_pellet, safe_freq, frequency_for_debug="30T"):
+    """
+    Mirror darts_pipeline order: Engineering -> Fill -> Smooth INST -> Scale 37 only -> Soft-Normalize 4
+    """
     from darts import TimeSeries
 
-    # 1. Apply Feature Engineering
+    # ---- 1. Feature engineering ----
     df_eng = apply_feature_engineering(df).copy()
 
-    # 2. Fill missing columns with NaN initially
+    # ---- 2. Ensure all model_covs columns exist ----
     for col in model_covs:
         if col not in df_eng.columns:
             df_eng[col] = np.nan
 
     cov_df = df_eng[model_covs].copy()
 
-    # 3. Forward-fill and Backward-fill covariates (no rolling smoothers)
+    # ---- 3. Fill INST_ exactly like training (interpolate -> ffill -> bfill -> mean/0) ----
+    inst_cols = [c for c in cov_df.columns if c.startswith("INST_")]
+    if inst_cols:
+        cov_df[inst_cols] = cov_df[inst_cols].interpolate(
+            method="linear", limit=MIN_INST_FILL, limit_direction="both"
+        )
+    
     for c in cov_df.columns:
         cov_df[c] = cov_df[c].ffill().bfill()
-    cov_df = cov_df.fillna(0.0)
+        
+    for c in cov_df.columns:
+        if cov_df[c].isna().any():
+            m = cov_df[c].mean()
+            cov_df[c] = cov_df[c].fillna(m if not pd.isna(m) else 0.0)
 
-    # 4. Define exactly the 4 features that MUST NOT be scaled
-    # (Leaving exactly 37 INST_ features for the scaler)
-    UNSCALED_FEATS = [
-        "INST_DELTA_T_DIFF",
-        "INST_FLOW_VAR_6H",
-        "INST_BPR_SLOPE",
-        "INST_BUSTLE_TEMP_RATE"
+    # ---- 4. Smooth INST_ (rolling 5) ----
+    if inst_cols:
+        cov_df[inst_cols] = cov_df[inst_cols].rolling(
+            window=INST_SMOOTH_WINDOW, min_periods=1
+        ).mean()
+        cov_df[inst_cols] = cov_df[inst_cols].bfill().fillna(0.0)
+
+    # ---- 5. Segregate: 37 to scale vs 4 unscaled ----
+    pellet_cols = [c for c in model_covs if c.startswith("PELLET_")]
+    inst_cols_to_scale = [
+        c for c in model_covs
+        if c.startswith("INST_") and c not in UNSCALED_INST_FEATURES
+    ]
+    inst_cols_unscaled = [
+        c for c in model_covs
+        if c.startswith("INST_") and c in UNSCALED_INST_FEATURES
     ]
 
-    # 5. Segregate columns
-    pellet_cols = [c for c in model_covs if c.startswith('PELLET_')]
-    inst_cols_to_scale = [c for c in model_covs if c.startswith('INST_') and c not in UNSCALED_FEATS]
-
-    # 6. Scale INST features (Exactly 37 columns)
+    # ---- 6. Scale only the 37 INST_ columns ----
     if len(inst_cols_to_scale) > 0:
         ts_inst = TimeSeries.from_dataframe(cov_df[inst_cols_to_scale], freq=safe_freq)
         try:
             scaled_ts_inst = scaler_inst.transform(ts_inst)
-            vals_inst = scaled_ts_inst.values()
-            if vals_inst.ndim == 3:
-                vals_inst = vals_inst[:, :, 0]
-            cov_df[inst_cols_to_scale] = vals_inst
-        except Exception as e:
-            logger.error(f"Scaler INST error: {e}")
+            vals = scaled_ts_inst.values()
+            if vals.ndim == 3:
+                vals = vals[:, :, 0]
+            cov_df[inst_cols_to_scale] = vals
+        except ValueError as e:
+            logger.error(f"Scaler expects 37 features. Current subset len: {len(inst_cols_to_scale)}. Error: {e}")
+            raise
 
-    # 7. Scale PELLET features (Exactly 2 columns)
+    # ---- 7. Soft-normalize the 4 unscaled features to [0,1] ----
+    for col in inst_cols_unscaled:
+        if col not in UNSCALED_FEATURE_BOUNDS:
+            continue
+        lo, hi = UNSCALED_FEATURE_BOUNDS[col]
+        x = cov_df[col].values
+        x = np.clip(x, lo, hi) # Prevent extreme outliers
+        if hi > lo:
+            cov_df[col] = (x - lo) / (hi - lo)
+        else:
+            cov_df[col] = 0.0
+
+    # ---- 8. Scale PELLET ----
     if len(pellet_cols) > 0:
         ts_pellet = TimeSeries.from_dataframe(cov_df[pellet_cols], freq=safe_freq)
         try:
             scaled_ts_pellet = scaler_pellet.transform(ts_pellet)
-            vals_pellet = scaled_ts_pellet.values()
-            if vals_pellet.ndim == 3:
-                vals_pellet = vals_pellet[:, :, 0]
-            cov_df[pellet_cols] = vals_pellet
+            vals = scaled_ts_pellet.values()
+            if vals.ndim == 3:
+                vals = vals[:, :, 0]
+            cov_df[pellet_cols] = vals
         except Exception as e:
-            logger.error(f"Scaler PELLET error: {e}")
+            logger.error("Scaler PELLET error: %s", e)
 
-    # 8. Reconstruct final covariate series with correct order
+    # ---- 9. Safe Auditing ----
+    try:
+        save_debug_data(cov_df, prefix=f"inference_input_{frequency_for_debug}")
+    except Exception:
+        pass
+
+    # ---- 10. Build final covariate in exact model_covs order ----
     covariate_series = TimeSeries.from_dataframe(cov_df[model_covs], freq=safe_freq)
 
     return covariate_series, df_eng
