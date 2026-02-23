@@ -60,9 +60,12 @@
       <div id="chart-md-main" class="w-full" style="height: 300px;"></div>
     </div>
 
-    {# MD diff bar chart #}
+    {# MD diff bar chart — legend in footer, minimal top spacing #}
     <div class="border-t border-dashed border-slate-200 dark:border-zinc-700/50">
-      <div class="flex flex-wrap items-center gap-x-5 gap-y-1 bg-slate-50/40 px-5 py-2 dark:bg-zinc-800/20">
+      <div class="px-4 pb-1 pt-0.5">
+        <div id="chart-md-diff" class="w-full" style="height: 160px;"></div>
+      </div>
+      <div class="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 border-t border-slate-100 bg-slate-50/40 px-4 py-2 dark:border-zinc-700/40 dark:bg-zinc-800/20">
         <p class="text-xs font-semibold text-slate-500 dark:text-zinc-500">Actual − Predicted</p>
         <span class="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
           <span class="inline-block h-2.5 w-2.5 rounded-sm bg-amber-400 dark:bg-amber-500" aria-hidden="true"></span>Under-predicted (+)
@@ -70,9 +73,6 @@
         <span class="flex items-center gap-1.5 text-xs font-medium text-indigo-600 dark:text-indigo-400">
           <span class="inline-block h-2.5 w-2.5 rounded-sm bg-indigo-400 dark:bg-indigo-500" aria-hidden="true"></span>Over-predicted (−)
         </span>
-      </div>
-      <div class="px-4 pb-4 pt-1">
-        <div id="chart-md-diff" class="w-full" style="height: 160px;"></div>
       </div>
     </div>
   </div>
@@ -101,9 +101,12 @@
       <div id="chart-c-main" class="w-full" style="height: 300px;"></div>
     </div>
 
-    {# C diff bar chart #}
+    {# C diff bar chart — legend in footer, minimal top spacing #}
     <div class="border-t border-dashed border-slate-200 dark:border-zinc-700/50">
-      <div class="flex flex-wrap items-center gap-x-5 gap-y-1 bg-slate-50/40 px-5 py-2 dark:bg-zinc-800/20">
+      <div class="px-4 pb-1 pt-0.5">
+        <div id="chart-c-diff" class="w-full" style="height: 160px;"></div>
+      </div>
+      <div class="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 border-t border-slate-100 bg-slate-50/40 px-4 py-2 dark:border-zinc-700/40 dark:bg-zinc-800/20">
         <p class="text-xs font-semibold text-slate-500 dark:text-zinc-500">Actual − Predicted</p>
         <span class="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
           <span class="inline-block h-2.5 w-2.5 rounded-sm bg-amber-400 dark:bg-amber-500" aria-hidden="true"></span>Under-predicted (+)
@@ -111,9 +114,6 @@
         <span class="flex items-center gap-1.5 text-xs font-medium text-indigo-600 dark:text-indigo-400">
           <span class="inline-block h-2.5 w-2.5 rounded-sm bg-indigo-400 dark:bg-indigo-500" aria-hidden="true"></span>Over-predicted (−)
         </span>
-      </div>
-      <div class="px-4 pb-4 pt-1">
-        <div id="chart-c-diff" class="w-full" style="height: 160px;"></div>
       </div>
     </div>
   </div>
@@ -339,11 +339,11 @@
         var predIsHigher = pv >= av;
         points.push({
           x: cat, y: pv, marker: { size: 0 },
-          label: lineAnnLabel(Number(pv).toFixed(precision), predColor, predIsHigher ? -18 : 20)
+          label: lineAnnLabel(Number(pv).toFixed(precision), predColor, predIsHigher ? -18 : 28)
         });
         points.push({
           x: cat, y: av, marker: { size: 0 },
-          label: lineAnnLabel(Number(av).toFixed(precision), actualColor, predIsHigher ? 20 : -18)
+          label: lineAnnLabel(Number(av).toFixed(precision), actualColor, predIsHigher ? 28 : -18)
         });
       } else if (pv !== null) {
         points.push({
@@ -362,7 +362,7 @@
 
   // ── Build point annotations for diff bar charts ───────────────────────────
   // Positive bar → label just ABOVE bar top   (offsetY -5)
-  // Negative bar → label just BELOW bar bottom (offsetY +7)
+  // Negative bar → label BELOW bar bottom, lower to avoid overlap (offsetY +22)
   function buildDiffAnnotations(categories, diffArr, precision) {
     var points = [];
     for (var i = 0; i < 17; i++) {
@@ -371,7 +371,7 @@
       if (val === null) continue;
       var color = val >= 0 ? COLORS.diff.pos : COLORS.diff.neg;
       var text  = (val >= 0 ? '+' : '') + Number(val).toFixed(precision);
-      var offY  = val >= 0 ? -5 : 7;
+      var offY  = val >= 0 ? -5 : 22;
       points.push({ x: cat, y: val, marker: { size: 0 }, label: diffAnnLabel(text, color, offY) });
     }
     return points;
@@ -430,7 +430,7 @@
       }],
       plotOptions: { bar: { columnWidth: '52%', borderRadius: 3 } },
       dataLabels:  { enabled: false },
-      grid: Object.assign({}, bMdDiff.grid, { padding: { top: 16, right: 14, bottom: 4, left: 4 } }),
+      grid: Object.assign({}, bMdDiff.grid, { padding: { top: 6, right: 14, bottom: 4, left: 4 } }),
       xaxis: bMdDiff.xaxis,
       yaxis: {
         labels: {
@@ -499,7 +499,7 @@
       }],
       plotOptions: { bar: { columnWidth: '52%', borderRadius: 3 } },
       dataLabels:  { enabled: false },
-      grid: Object.assign({}, bCDiff.grid, { padding: { top: 16, right: 14, bottom: 4, left: 4 } }),
+      grid: Object.assign({}, bCDiff.grid, { padding: { top: 6, right: 14, bottom: 4, left: 4 } }),
       xaxis: bCDiff.xaxis,
       yaxis: {
         labels: {
